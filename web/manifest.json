@@ -1,0 +1,35 @@
+{
+    "name": "SparkSync — Lagos Dating & Life Sim",
+    "short_name": "SparkSync",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#090D16",
+    "theme_color": "#FF4D6D",
+    "description": "Lagos Dating & Life Simulator with real-time 2go nostalgia rooms, hustles, and nightlife.",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}
