@@ -3,6 +3,7 @@ import '../models/models.dart';
 import '../services/game_state.dart';
 import '../services/sound_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/credit_top_up_sheet.dart';
 
 class CheckoutScreen extends StatefulWidget {
   final ShopItem item;
@@ -51,25 +52,34 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFF252545),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppTheme.lagosYellow.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  const Text('🪙 ', style: TextStyle(fontSize: 14)),
-                  Text(
-                    '$userWalletBalance Coins',
-                    style: const TextStyle(
-                      color: Colors.cyanAccent,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
+            child: InkWell(
+              onTap: () async {
+                await CreditTopUpSheet.show(context, widget.gameState);
+                if (mounted) setState(() {});
+              },
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF252545),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppTheme.lagosYellow.withValues(alpha: 0.5)),
+                ),
+                child: Row(
+                  children: [
+                    const Text('🪙 ', style: TextStyle(fontSize: 14)),
+                    Text(
+                      '$userWalletBalance Coins',
+                      style: const TextStyle(
+                        color: Colors.cyanAccent,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 4),
+                    const Icon(Icons.add_circle, color: AppTheme.lagosYellow, size: 16),
+                  ],
+                ),
               ),
             ),
           )
@@ -322,6 +332,32 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
               ),
             ),
+            if (!canAfford) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    await CreditTopUpSheet.show(context, widget.gameState);
+                    if (mounted) setState(() {});
+                  },
+                  icon: const Icon(Icons.bolt_rounded, color: AppTheme.lagosYellow),
+                  label: const Text(
+                    'TOP UP CREDITS VIA PAYSTACK (+20% BONUS) ⚡',
+                    style: TextStyle(
+                      color: AppTheme.lagosYellow,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppTheme.lagosYellow, width: 1.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
 
             const Row(

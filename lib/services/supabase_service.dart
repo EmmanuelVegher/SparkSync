@@ -223,6 +223,12 @@ class SupabaseService {
     if (!isConfigured) return;
     try {
       await client!.auth.signOut();
+      try {
+        final googleSignIn = GoogleSignIn();
+        if (await googleSignIn.isSignedIn()) {
+          await googleSignIn.signOut();
+        }
+      } catch (_) {}
     } catch (e) {
       debugPrint('[SupabaseService] Sign out error: $e');
     }

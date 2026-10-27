@@ -9,13 +9,9 @@ void main() {
     await tester.pumpWidget(const SparkSyncApp());
     await tester.pump();
 
-    // Advance past SplashScreen
-    final skipBtn = find.text('Skip');
-    if (skipBtn.evaluate().isNotEmpty) {
-      await tester.tap(skipBtn);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 900));
-    }
+    // Advance past SplashScreen (1500ms timer + 600ms transition)
+    await tester.pump(const Duration(milliseconds: 1600));
+    await tester.pump(const Duration(milliseconds: 800));
 
     // Verify Auth screen appears
     expect(find.text('SparkSync'), findsWidgets);
@@ -34,10 +30,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 2000));
     await tester.pump();
 
-    // Verify navigation bar labels in MainShell (3 Ultra-Clean Tabs)
+    // Verify navigation bar labels in MainShell (3 Ultra-Clean Apple Tabs)
     expect(find.text('Rooms'), findsOneWidget);
     expect(find.text('Matches'), findsOneWidget);
-    expect(find.text('City Hub'), findsOneWidget);
+    expect(find.text('Discover'), findsOneWidget);
 
     // Stop timer to cleanly finish test
     GameState().stopTimer();

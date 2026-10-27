@@ -8,9 +8,13 @@ import '../services/game_state.dart';
 import '../services/local_persistence_service.dart';
 import '../services/sound_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/credit_top_up_sheet.dart';
 import '../widgets/human_avatar_widget.dart';
+import '../widgets/performance_export_modal.dart';
 import '../widgets/two_go_presence_sheet.dart';
 import '../widgets/two_go_star_ladder_sheet.dart';
+import '../services/supabase_service.dart';
+import 'auth_screen.dart';
 import 'selfie_liveness_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -355,27 +359,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final nextRank = user.starRank.nextRank;
         final progress = user.starRank.progressToNext(user.xp);
 
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+
         return Scaffold(
-          backgroundColor: AppTheme.nightObsidian,
+          backgroundColor: isDark ? AppTheme.nightObsidian : AppTheme.lightBg,
           appBar: AppBar(
-            backgroundColor: AppTheme.cardSurface,
+            backgroundColor: isDark ? AppTheme.cardSurface : Colors.white,
             elevation: 0,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+              icon: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: isDark ? Colors.white : AppTheme.textDark,
+                size: 20,
+              ),
               onPressed: () => Navigator.of(context).pop(),
             ),
-            title: const Text(
+            title: Text(
               'My Profile',
               style: TextStyle(
-                color: Colors.white,
+                color: isDark ? Colors.white : AppTheme.textDark,
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
               ),
             ),
             actions: [
               IconButton(
+                tooltip: isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme',
+                icon: Icon(
+                  isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                  color: isDark ? const Color(0xFFFFD60A) : const Color(0xFF1D1D1F),
+                  size: 22,
+                ),
+                onPressed: () => widget.gameState.toggleTheme(),
+              ),
+              IconButton(
                 tooltip: 'Edit Status',
-                icon: const Icon(Icons.edit_note_rounded, color: Colors.white70, size: 24),
+                icon: Icon(
+                  Icons.edit_note_rounded,
+                  color: isDark ? Colors.white70 : AppTheme.textMuted,
+                  size: 24,
+                ),
                 onPressed: _showEditStatusDialog,
               ),
             ],
@@ -487,10 +510,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 Text(
                   user.username,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: AppTheme.getTextColor(isDark),
                   ),
                 ),
                 if (user.isVerified) ...[
@@ -511,9 +534,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // Title & Location
             Text(
               '${user.title} • ${user.neighborhood}',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
-                color: AppTheme.textMuted,
+                color: AppTheme.getSubtextColor(isDark),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -525,7 +548,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: Colors.orangeAccent.withValues(alpha: 0.12),
+                  color: Colors.orangeAccent.withValues(alpha: isDark ? 0.12 : 0.1),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.35)),
                 ),
@@ -546,6 +569,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 8),
+
+            // Football Loyalty & Certified Pundit Flair
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (user.supportedClub != null && user.supportedClub!.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(right: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF182236) : const Color(0xFFE8F2FF),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.skyCyan.withValues(alpha: 0.3)),
+                    ),
+                    child: Text(
+                      '🛡️ ${user.supportedClub}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? Colors.white : const Color(0xFF0071E3),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                if (user.isCertifiedPundit)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFFD027), Color(0xFFFF9100)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFFD027).withValues(alpha: 0.3),
+                          blurRadius: 6,
+                        ),
+                      ],
+                    ),
+                    child: const Text(
+                      '🏆 Certified Pundit ⚽',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: Colors.black,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
             const SizedBox(height: 10),
 
             // Status message quote
@@ -554,9 +628,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppTheme.cardSurface,
+                  color: AppTheme.getCardSurface(isDark),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppTheme.cardBorder),
+                  border: Border.all(color: AppTheme.getCardBorder(isDark), width: 0.5),
+                  boxShadow: AppTheme.getCardShadow(isDark),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -564,8 +639,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Flexible(
                       child: Text(
                         '"${user.statusText}"',
-                        style: const TextStyle(
-                          color: Colors.white70,
+                        style: TextStyle(
+                          color: AppTheme.getTextColor(isDark),
                           fontSize: 13,
                           fontStyle: FontStyle.italic,
                         ),
@@ -573,7 +648,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                     const SizedBox(width: 6),
-                    const Icon(Icons.edit, size: 12, color: AppTheme.textMuted),
+                    Icon(Icons.edit, size: 12, color: AppTheme.getSubtextColor(isDark)),
                   ],
                 ),
               ),
@@ -890,9 +965,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppTheme.cardSurface,
+                color: AppTheme.getCardSurface(isDark),
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: AppTheme.cardBorder),
+                border: Border.all(color: AppTheme.getCardBorder(isDark), width: 0.5),
+                boxShadow: AppTheme.getCardShadow(isDark),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -900,10 +976,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'ACTIVE STATUS',
                         style: TextStyle(
-                          color: Colors.grey,
+                          color: AppTheme.getSubtextColor(isDark),
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1,
@@ -958,11 +1034,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               decoration: BoxDecoration(
-                                color: isSelected ? pColor.withValues(alpha: 0.2) : AppTheme.nightObsidian,
+                                color: isSelected
+                                    ? pColor.withValues(alpha: isDark ? 0.2 : 0.12)
+                                    : (isDark ? AppTheme.nightObsidian : const Color(0xFFF2F2F7)),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
-                                  color: isSelected ? pColor : AppTheme.cardBorder,
-                                  width: isSelected ? 1.5 : 1,
+                                  color: isSelected
+                                      ? pColor
+                                      : (isDark ? AppTheme.cardBorder : const Color(0xFFE5E5EA)),
+                                  width: isSelected ? 1.5 : 0.5,
                                 ),
                               ),
                               child: Column(
@@ -972,7 +1052,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   Text(
                                     presence.label,
                                     style: TextStyle(
-                                      color: isSelected ? pColor : Colors.white70,
+                                      color: isSelected
+                                          ? pColor
+                                          : (isDark ? Colors.white70 : const Color(0xFF48484A)),
                                       fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                                       fontSize: 10,
                                     ),
@@ -996,9 +1078,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppTheme.cardSurface,
+                color: AppTheme.getCardSurface(isDark),
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: rankColor.withValues(alpha: 0.5)),
+                border: Border.all(
+                  color: rankColor.withValues(alpha: isDark ? 0.5 : 0.4),
+                  width: 0.5,
+                ),
+                boxShadow: AppTheme.getCardShadow(isDark),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1011,7 +1097,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: rankColor.withValues(alpha: 0.2),
+                              color: rankColor.withValues(alpha: isDark ? 0.2 : 0.15),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(color: rankColor.withValues(alpha: 0.6)),
                             ),
@@ -1027,7 +1113,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const SizedBox(width: 8),
                           Text(
                             'Level ${user.level}',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: AppTheme.getTextColor(isDark),
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
@@ -1050,12 +1139,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       Text(
                         '${user.xp} Total XP',
-                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                        style: TextStyle(
+                          color: isDark ? Colors.white70 : const Color(0xFF3A3A3C),
+                          fontSize: 12,
+                        ),
                       ),
                       if (nextRank != null)
                         Text(
                           'Next: ${nextRank.badgeTitle} (${nextRank.requiredXp} XP)',
-                          style: const TextStyle(color: AppTheme.textMuted, fontSize: 11),
+                          style: TextStyle(
+                            color: AppTheme.getSubtextColor(isDark),
+                            fontSize: 11,
+                          ),
                         ),
                     ],
                   ),
@@ -1065,7 +1160,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: LinearProgressIndicator(
                       value: progress,
                       minHeight: 8,
-                      backgroundColor: Colors.black45,
+                      backgroundColor: isDark ? Colors.black45 : const Color(0xFFE5E5EA),
                       valueColor: AlwaysStoppedAnimation<Color>(rankColor),
                     ),
                   ),
@@ -1078,7 +1173,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Row(
               children: [
                 Expanded(
-                  child: _buildStatItem('🪙 Coins', '${user.walletBalance}', AppTheme.lagosYellow),
+                  child: InkWell(
+                    onTap: () => CreditTopUpSheet.show(context, widget.gameState),
+                    borderRadius: BorderRadius.circular(16),
+                    child: _buildStatItem('🪙 Coins (Top Up +)', '${user.walletBalance}', AppTheme.lagosYellow),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1098,7 +1197,68 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 18),
+
+            // SAVED KARAOKE & ACAPELLA SHOWCASE
+            _buildPerformancesShowcase(user),
+
+            const SizedBox(height: 24),
+
+            // Apple Minimalist Log Out Action
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.cardSurface : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isDark ? AppTheme.cardBorder : AppTheme.lightCardBorder,
+                  width: 0.5,
+                ),
+              ),
+              child: InkWell(
+                onTap: _showLogOutConfirmationDialog,
+                borderRadius: BorderRadius.circular(16),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.logout_rounded,
+                        color: Color(0xFFFF3B30), // Apple System Red
+                        size: 20,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Log Out',
+                        style: TextStyle(
+                          color: Color(0xFFFF3B30), // Apple System Red
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Subtle Version & Session info
+            Center(
+              child: Text(
+                'SparkSync v1.0.0 • Signed in as ${user.username}',
+                style: const TextStyle(
+                  color: AppTheme.textMuted,
+                  fontSize: 11,
+                  letterSpacing: -0.1,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 36),
           ],
         ),
       ),
@@ -1107,18 +1267,294 @@ class _ProfileScreenState extends State<ProfileScreen> {
 );
 }
 
-  Widget _buildStatItem(String label, String value, Color color) {
+  void _showLogOutConfirmationDialog() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(
+            color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA),
+            width: 0.5,
+          ),
+        ),
+        title: Text(
+          'Log Out',
+          style: TextStyle(
+            color: isDark ? Colors.white : AppTheme.textDark,
+            fontWeight: FontWeight.bold,
+            fontSize: 17,
+            letterSpacing: -0.3,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to log out of SparkSync?',
+          style: TextStyle(
+            color: isDark ? const Color(0xFFEBEBF5) : const Color(0xFF3C3C43),
+            fontSize: 13.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF86868B),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              await _performSignOut();
+            },
+            child: const Text(
+              'Log Out',
+              style: TextStyle(
+                color: Color(0xFFFF3B30),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _performSignOut() async {
+    try {
+      await SupabaseService().signOut();
+    } catch (e) {
+      debugPrint('[ProfileScreen] SignOut error: $e');
+    }
+
+    if (mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => AuthScreen(gameState: widget.gameState)),
+        (route) => false,
+      );
+    }
+  }
+
+  Widget _buildPerformancesShowcase(UserStats user) {
+    final list = user.savedPerformances;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppTheme.cardSurface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.cardBorder),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.purpleAccent.withValues(alpha: 0.4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Text('🎤', style: TextStyle(fontSize: 18)),
+                  SizedBox(width: 8),
+                  Text(
+                    'SAVED SHOWCASE',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.purpleAccent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${list.length} Saved Clips',
+                  style: const TextStyle(
+                    color: Colors.purpleAccent,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Your recorded Karaoke sets & Saturday Acapella Arena performances. Re-share to WhatsApp, TikTok, or Stories anytime!',
+            style: TextStyle(color: AppTheme.textMuted, fontSize: 11),
+          ),
+          const SizedBox(height: 14),
+
+          if (list.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F111E),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white10),
+              ),
+              child: const Column(
+                children: [
+                  Text('🎶', style: TextStyle(fontSize: 28)),
+                  SizedBox(height: 8),
+                  Text(
+                    'No saved performances yet!',
+                    style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Hop on the Lounge mic during Karaoke Nights or Saturday Showdowns to record and save your sets here.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppTheme.textMuted, fontSize: 11),
+                  ),
+                ],
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: list.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final perf = list[index];
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F111E),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: perf.isAcapella
+                          ? Colors.amberAccent.withValues(alpha: 0.4)
+                          : const Color(0xFF6C63FF).withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: perf.isAcapella
+                              ? Colors.amberAccent.withValues(alpha: 0.15)
+                              : const Color(0xFF6C63FF).withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(perf.isAcapella ? '🏆' : '🎤', style: const TextStyle(fontSize: 18)),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    perf.trackTitle,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: perf.isAcapella
+                                        ? Colors.amberAccent.withValues(alpha: 0.2)
+                                        : const Color(0xFF6C63FF).withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    perf.isAcapella ? 'ACAPELLA' : 'KARAOKE',
+                                    style: TextStyle(
+                                      color: perf.isAcapella ? Colors.amberAccent : const Color(0xFF818CF8),
+                                      fontSize: 8.5,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Text(
+                              perf.trackArtist,
+                              style: const TextStyle(color: AppTheme.textMuted, fontSize: 10.5),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '🗳️ ${perf.totalVotes} Votes • +${perf.xpEarned} XP Earned',
+                              style: const TextStyle(color: AppTheme.lagosYellow, fontSize: 10, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.share_rounded, color: Colors.cyanAccent, size: 20),
+                        tooltip: 'Share clip to socials',
+                        onPressed: () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (_) => PerformanceExportModal(
+                              gameState: widget.gameState,
+                              performerName: perf.username,
+                              performerAvatar: perf.userAvatar,
+                              performerRank: perf.rankTitle,
+                              trackTitle: perf.trackTitle,
+                              trackArtist: perf.trackArtist,
+                              totalVotes: perf.totalVotes,
+                              xpEarned: perf.xpEarned,
+                              isAcapella: perf.isAcapella,
+                              voteBreakdown: perf.voteBreakdown,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, Color color) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppTheme.getCardSurface(isDark),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.getCardBorder(isDark), width: 0.5),
+        boxShadow: AppTheme.getCardShadow(isDark),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: TextStyle(color: AppTheme.getSubtextColor(isDark), fontSize: 12)),
           const SizedBox(height: 4),
           Text(
             value,

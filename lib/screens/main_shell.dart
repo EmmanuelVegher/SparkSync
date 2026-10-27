@@ -29,6 +29,7 @@ class _MainShellState extends State<MainShell> {
     return ListenableBuilder(
       listenable: _gameState,
       builder: (context, _) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         final screens = [
           TwoGoRoomsScreen(gameState: _gameState),
           MatchesScreen(gameState: _gameState),
@@ -50,7 +51,7 @@ class _MainShellState extends State<MainShell> {
         }
 
         return Scaffold(
-          backgroundColor: AppTheme.nightObsidian,
+          backgroundColor: isDark ? AppTheme.nightObsidian : AppTheme.lightBg,
           body: Column(
             children: [
               // Top Persistent HUD
@@ -80,76 +81,89 @@ class _MainShellState extends State<MainShell> {
             ],
           ),
           bottomNavigationBar: Container(
-            decoration: const BoxDecoration(
-              color: AppTheme.cardSurface,
-              border: Border(top: BorderSide(color: AppTheme.cardBorder, width: 1)),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF121214) : Colors.white,
+              border: Border(
+                top: BorderSide(
+                  color: isDark ? const Color(0xFF242426) : const Color(0xFFE5E5EA),
+                  width: 0.5,
+                ),
+              ),
             ),
             child: SafeArea(
-              child: BottomNavigationBar(
-                currentIndex: safeIndex,
-                onTap: (index) {
-                  setState(() {
-                    _currentIndex = index;
-                  });
-                },
-                type: BottomNavigationBarType.fixed,
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                selectedItemColor: AppTheme.brandCoral,
-                unselectedItemColor: AppTheme.textMuted,
-                selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                unselectedLabelStyle: const TextStyle(fontSize: 10),
-                items: [
-                  const BottomNavigationBarItem(
-                    icon: Icon(Icons.forum_outlined),
-                    activeIcon: Icon(Icons.forum_rounded),
-                    label: 'Rooms',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Stack(
-                      children: [
-                        const Icon(Icons.chat_bubble_outline_rounded),
-                        if (_gameState.matches.isNotEmpty)
-                          Positioned(
-                            top: 0,
-                            right: 0,
-                            child: Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                color: AppTheme.neonEmerald,
-                                shape: BoxShape.circle,
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  splashColor: Colors.transparent,
+                  highlightColor: Colors.transparent,
+                ),
+                child: BottomNavigationBar(
+                  currentIndex: safeIndex,
+                  onTap: (index) {
+                    setState(() {
+                      _currentIndex = index;
+                    });
+                  },
+                  type: BottomNavigationBarType.fixed,
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  selectedItemColor: AppTheme.brandCoral, // Apple Signature Blue
+                  unselectedItemColor: const Color(0xFF8E8E93), // Apple SF Gray
+                  selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 10, letterSpacing: -0.2),
+                  unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 10, letterSpacing: -0.2),
+                  items: [
+                    const BottomNavigationBarItem(
+                      icon: Icon(Icons.chat_bubble_outline_rounded, size: 22),
+                      activeIcon: Icon(Icons.chat_bubble_rounded, size: 22),
+                      label: 'Rooms',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          const Icon(Icons.people_outline_rounded, size: 23),
+                          if (_gameState.matches.isNotEmpty)
+                            Positioned(
+                              top: -2,
+                              right: -3,
+                              child: Container(
+                                width: 7,
+                                height: 7,
+                                decoration: const BoxDecoration(
+                                  color: AppTheme.neonEmerald,
+                                  shape: BoxShape.circle,
+                                ),
                               ),
                             ),
-                          ),
-                      ],
-                    ),
-                    activeIcon: Stack(
-                      children: [
-                        const Icon(Icons.chat_bubble_rounded),
-                        if (_gameState.matches.isNotEmpty)
-                          Positioned(
-                            top: 0,
-                            right: 0,
-                            child: Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                color: AppTheme.neonEmerald,
-                                shape: BoxShape.circle,
+                        ],
+                      ),
+                      activeIcon: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          const Icon(Icons.people_rounded, size: 23),
+                          if (_gameState.matches.isNotEmpty)
+                            Positioned(
+                              top: -2,
+                              right: -3,
+                              child: Container(
+                                width: 7,
+                                height: 7,
+                                decoration: const BoxDecoration(
+                                  color: AppTheme.neonEmerald,
+                                  shape: BoxShape.circle,
+                                ),
                               ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
+                      label: 'Matches',
                     ),
-                    label: 'Matches',
-                  ),
-                  const BottomNavigationBarItem(
-                    icon: Icon(Icons.explore_outlined),
-                    activeIcon: Icon(Icons.explore_rounded),
-                    label: 'City Hub',
-                  ),
-                ],
+                    const BottomNavigationBarItem(
+                      icon: Icon(Icons.compass_calibration_outlined, size: 22),
+                      activeIcon: Icon(Icons.compass_calibration_rounded, size: 22),
+                      label: 'Discover',
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

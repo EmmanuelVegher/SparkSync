@@ -384,7 +384,48 @@ class LocationService {
     ),
   };
 
-  CityConfig get activeConfig => supportedCities[currentCity] ?? supportedCities['Abuja']!;
+  CityConfig get activeConfig {
+    if (supportedCities.containsKey(currentCity)) {
+      return supportedCities[currentCity]!;
+    }
+    return CityConfig(
+      cityName: currentCity,
+      stateOrCountry: currentState,
+      currencySymbol: '🪙',
+      enterButtonText: 'Explore $currentCity',
+      neighborhoods: [
+        currentArea.isNotEmpty ? currentArea : '$currentCity Central',
+        currentLga,
+        'City Center',
+        'GRA',
+      ],
+      venues: [
+        VenueSpot(
+          id: '${currentCity.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}_central_lounge',
+          name: '$currentCity Grand Lounge',
+          area: currentArea.isNotEmpty ? currentArea : currentCity,
+          category: 'Nightlife & Dining',
+          iconEmoji: '🍸',
+          activeSingles: 120,
+          description: 'The top social hotspot for locals and visitors in $currentCity.',
+          vibeTag: 'Trending Hotspot 🔥',
+          popularDrinks: ['Chapman Classic', 'Chilled Beer', 'House Cocktail'],
+        ),
+      ],
+      hustles: [
+        HustleJob(
+          id: '${currentCity.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}_local_guide',
+          title: '$currentCity Experience Host',
+          hood: currentArea.isNotEmpty ? currentArea : currentCity,
+          iconEmoji: '🗺️',
+          energyCost: 20,
+          coinReward: 100,
+          durationSeconds: 5,
+          description: 'Host travelers and locals discovering the best spots in $currentCity.',
+        ),
+      ],
+    );
+  }
 
   // Detect location and build comprehensive user intelligence on launch
   Future<String> detectLocationOnLaunch() async {
@@ -531,21 +572,60 @@ class LocationService {
     currentLga = lga;
     currentArea = area;
     currentCountry = country;
-    final lowerState = state.toLowerCase();
     String resolvedCity = city ?? currentCity;
     if (city == null) {
-      if (lowerState.contains('niger')) {
-        resolvedCity = 'Minna';
-      } else if (lowerState.contains('abuja') || lowerState.contains('fct')) {
-        resolvedCity = 'Abuja';
-      } else if (lowerState.contains('lagos')) {
-        resolvedCity = 'Lagos';
-      } else if (lowerState.contains('rivers')) {
-        resolvedCity = 'Port Harcourt';
-      }
+      resolvedCity = _resolveCityFromState(state, lga);
     }
     switchCity(resolvedCity);
     _buildFallbackIntel();
+  }
+
+  String _resolveCityFromState(String state, String lga) {
+    final lowerState = state.toLowerCase();
+    final lowerLga = lga.toLowerCase();
+
+    if (lowerState.contains('abuja') || lowerState.contains('fct')) return 'Abuja';
+    if (lowerState.contains('lagos')) return 'Lagos';
+    if (lowerState.contains('rivers')) return 'Port Harcourt';
+    if (lowerState.contains('niger')) return 'Minna';
+    if (lowerState.contains('kano')) return 'Kano';
+    if (lowerState.contains('enugu')) return 'Enugu';
+    if (lowerState.contains('oyo')) return 'Ibadan';
+    if (lowerState.contains('plateau')) return 'Jos';
+    if (lowerState.contains('kaduna')) return 'Kaduna';
+    if (lowerState.contains('cross river')) return 'Calabar';
+    if (lowerState.contains('edo')) return 'Benin City';
+    if (lowerState.contains('akwa ibom')) return 'Uyo';
+    if (lowerState.contains('imo')) return 'Owerri';
+    if (lowerState.contains('delta')) {
+      return lowerLga.contains('warri') ? 'Warri' : 'Asaba';
+    }
+    if (lowerState.contains('ogun')) return 'Abeokuta';
+    if (lowerState.contains('kwara')) return 'Ilorin';
+    if (lowerState.contains('ondo')) return 'Akure';
+    if (lowerState.contains('osun')) return 'Osogbo';
+    if (lowerState.contains('anambra')) return 'Awka';
+    if (lowerState.contains('abia')) return 'Umuahia';
+    if (lowerState.contains('borno')) return 'Maiduguri';
+    if (lowerState.contains('sokoto')) return 'Sokoto';
+    if (lowerState.contains('benue')) return 'Makurdi';
+    if (lowerState.contains('bauchi')) return 'Bauchi';
+    if (lowerState.contains('adamawa')) return 'Yola';
+    if (lowerState.contains('kogi')) return 'Lokoja';
+    if (lowerState.contains('nasarawa')) return 'Lafia';
+    if (lowerState.contains('katsina')) return 'Katsina';
+    if (lowerState.contains('kebbi')) return 'Birnin Kebbi';
+    if (lowerState.contains('zamfara')) return 'Gusau';
+    if (lowerState.contains('jigawa')) return 'Dutse';
+    if (lowerState.contains('gombe')) return 'Gombe';
+    if (lowerState.contains('taraba')) return 'Jalingo';
+    if (lowerState.contains('yobe')) return 'Damaturu';
+    if (lowerState.contains('ekiti')) return 'Ado-Ekiti';
+    if (lowerState.contains('bayelsa')) return 'Yenagoa';
+    if (lowerState.contains('ebonyi')) return 'Abakaliki';
+
+    final clean = state.replaceAll(RegExp(r'\s+State|\s*\(FCT\)', caseSensitive: false), '').trim();
+    return clean.isNotEmpty ? clean : 'Abuja';
   }
 
   /// Resolve GPS coordinates to detailed Worldwide Location using:

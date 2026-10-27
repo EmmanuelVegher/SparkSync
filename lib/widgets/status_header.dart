@@ -45,15 +45,16 @@ class StatusHeader extends StatelessWidget {
     final user = gameState.user;
     final rankColor = AppTheme.getRankColor(user.starRank.rankName);
     final presenceColor = _getPresenceColor(user.presence);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
       decoration: BoxDecoration(
-        color: AppTheme.cardSurface.withValues(alpha: 0.95),
+        color: isDark ? const Color(0xFF121214) : Colors.white,
         border: Border(
           bottom: BorderSide(
-            color: gameState.isNepaBlackout ? AppTheme.lagosYellow.withValues(alpha: 0.4) : AppTheme.cardBorder,
-            width: 1,
+            color: isDark ? const Color(0xFF242426) : const Color(0xFFE5E5EA),
+            width: 0.5,
           ),
         ),
       ),
@@ -126,10 +127,10 @@ class StatusHeader extends StatelessWidget {
                         Flexible(
                           child: Text(
                             user.username,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14.5,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: isDark ? Colors.white : AppTheme.textDark,
                               letterSpacing: -0.2,
                             ),
                             maxLines: 1,
@@ -149,8 +150,9 @@ class StatusHeader extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
 
-                  // Line 2: [🪙 200] + [★ AMATEUR] + 📍 Location (Aligned directly under the name!)
+                  // Line 2: [🪙 200] + [★ AMATEUR]
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       // Coins Chip
                       InkWell(
@@ -159,7 +161,7 @@ class StatusHeader extends StatelessWidget {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                           decoration: BoxDecoration(
-                            color: AppTheme.darkShimmer,
+                            color: isDark ? AppTheme.darkShimmer : const Color(0xFFF2F2F7),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: AppTheme.lagosYellow.withValues(alpha: 0.35)),
                           ),
@@ -209,48 +211,113 @@ class StatusHeader extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 6),
-
-                      // Dynamic Location Indicator (State, LGA, Area) with tap-to-change
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true,
-                              backgroundColor: Colors.transparent,
-                              builder: (ctx) => OfflineLocationPickerSheet(gameState: gameState),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.location_on_rounded, size: 11, color: AppTheme.brandCoral),
-                                const SizedBox(width: 2.5),
-                                Flexible(
-                                  child: Text(
-                                    user.dynamicLocationDisplay,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      color: AppTheme.textMuted,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 2),
-                                const Icon(Icons.arrow_drop_down_rounded, size: 13, color: AppTheme.textMuted),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
                     ],
                   ),
+                  const SizedBox(height: 3),
+
+                  // Line 3: Dynamic Location Indicator - Displayed in FULL without truncation
+                  GestureDetector(
+                    onTap: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (ctx) => OfflineLocationPickerSheet(gameState: gameState),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.only(top: 2, bottom: 1),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(top: 1.5),
+                            child: Icon(
+                              user.isTravelMode ? Icons.flight_takeoff_rounded : Icons.location_on_rounded,
+                              size: 11.5,
+                              color: user.isTravelMode
+                                  ? (isDark ? Colors.cyanAccent : const Color(0xFF0071E3))
+                                  : AppTheme.brandCoral,
+                            ),
+                          ),
+                          const SizedBox(width: 3),
+                          Expanded(
+                            child: user.isTravelMode
+                                ? Text.rich(
+                                    TextSpan(
+                                      children: [
+                                        TextSpan(
+                                          text: '✈️ Traveling: ',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: isDark ? Colors.cyanAccent : const Color(0xFF0071E3),
+                                          ),
+                                        ),
+                                        TextSpan(text: user.dynamicLocationDisplay),
+                                      ],
+                                    ),
+                                    softWrap: true,
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      color: isDark ? AppTheme.textMuted : const Color(0xFF6E6E73),
+                                      fontWeight: FontWeight.w500,
+                                      height: 1.25,
+                                    ),
+                                  )
+                                : Text(
+                                    user.dynamicLocationDisplay,
+                                    softWrap: true,
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      color: isDark ? AppTheme.textMuted : const Color(0xFF6E6E73),
+                                      fontWeight: FontWeight.w500,
+                                      height: 1.25,
+                                    ),
+                                  ),
+                          ),
+                          const SizedBox(width: 2),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 0.5),
+                            child: Icon(
+                              Icons.arrow_drop_down_rounded,
+                              size: 14,
+                              color: isDark ? AppTheme.textMuted : const Color(0xFF6E6E73),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
+              ),
+            ),
+
+            const SizedBox(width: 8),
+
+            // Apple Theme Mode Toggle Icon (☀️ Light / 🌙 Dark)
+            Tooltip(
+              message: isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme',
+              child: InkWell(
+                onTap: () => gameState.toggleTheme(),
+                borderRadius: BorderRadius.circular(20),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFE5E5EA),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFD1D1D6),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Icon(
+                    isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                    size: 17,
+                    color: isDark ? const Color(0xFFFFD60A) : const Color(0xFF1D1D1F),
+                  ),
+                ),
               ),
             ),
           ],

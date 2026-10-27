@@ -1,6 +1,7 @@
+import 'dart:async';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class SoundService {
@@ -10,8 +11,15 @@ class SoundService {
 
   AudioPlayer? _samplePlayer;
   AudioPlayer? _loopPlayer;
+  AudioPlayer? _karaokePlayer;
   bool _isLoopPlaying = false;
   bool get isLoopPlaying => _isLoopPlaying;
+  bool _isKaraokePlaying = false;
+  bool get isKaraokePlaying => _isKaraokePlaying;
+  bool _isKaraokeMuted = false;
+  bool get isKaraokeMuted => _isKaraokeMuted;
+  String? _currentKaraokeUrl;
+  String? get currentKaraokeUrl => _currentKaraokeUrl;
 
   // Cached Synthesized WAV Audio Buffers
   Uint8List? _kickWav;
@@ -22,6 +30,8 @@ class SoundService {
   Uint8List? _sheeshWav;
   Uint8List? _scratchWav;
   Uint8List? _cheerWav;
+  Uint8List? _whistleWav;
+  Uint8List? _vuvuzelaWav;
   Uint8List? _afrobeatLoopWav;
 
   /// Play a loud alert vibration and system alert sound
@@ -46,6 +56,27 @@ class SoundService {
       await HapticFeedback.mediumImpact();
       await SystemSound.play(SystemSoundType.click);
     } catch (_) {}
+  }
+
+  /// Button tap feedback
+  Future<void> playButtonTap() async {
+    try {
+      await HapticFeedback.selectionClick();
+      await SystemSound.play(SystemSoundType.click);
+    } catch (_) {}
+  }
+
+  /// Spraying Naira / gifting feedback
+  Future<void> playMoneySpray() async {
+    try {
+      await HapticFeedback.mediumImpact();
+      _sheeshWav ??= _generateSheeshWav();
+      await _playBytes(_sheeshWav!);
+    } catch (_) {
+      try {
+        await SystemSound.play(SystemSoundType.click);
+      } catch (_) {}
+    }
   }
 
   /// Coin or reward earned
@@ -132,6 +163,59 @@ class SoundService {
     }
   }
 
+  // ==========================================
+  // NAIJA BANTER ROOM AUDIO SYNTHESIS ENGINE
+  // ==========================================
+
+  /// Play an interactive Banter Soundboard sample (Whistle, Vuvuzela, Goal, Airhorn, Sheesh/E Choke, Wotowoto)
+  Future<void> playBanterSound(String sampleId) async {
+    try {
+      switch (sampleId.toLowerCase()) {
+        case 'whistle':
+        case 'var':
+          await HapticFeedback.mediumImpact();
+          _whistleWav ??= _generateWhistleWav();
+          await _playBytes(_whistleWav!);
+          break;
+        case 'vuvuzela':
+          await HapticFeedback.heavyImpact();
+          _vuvuzelaWav ??= _generateVuvuzelaWav();
+          await _playBytes(_vuvuzelaWav!);
+          break;
+        case 'goal':
+          await HapticFeedback.heavyImpact();
+          _cheerWav ??= _generateCheerWav();
+          await _playBytes(_cheerWav!);
+          break;
+        case 'airhorn':
+          await HapticFeedback.heavyImpact();
+          _airhornWav ??= _generateAirhornWav();
+          await _playBytes(_airhornWav!);
+          break;
+        case 'sheesh':
+        case 'echoke':
+          await HapticFeedback.selectionClick();
+          _sheeshWav ??= _generateSheeshWav();
+          await _playBytes(_sheeshWav!);
+          break;
+        case 'scratch':
+        case 'wotowoto':
+          await HapticFeedback.heavyImpact();
+          _scratchWav ??= _generateRecordScratchWav();
+          await _playBytes(_scratchWav!);
+          break;
+        default:
+          await HapticFeedback.lightImpact();
+          await SystemSound.play(SystemSoundType.click);
+          break;
+      }
+    } catch (_) {
+      try {
+        await SystemSound.play(SystemSoundType.click);
+      } catch (_) {}
+    }
+  }
+
   /// Starts ambient Afrobeat rhythm backing loop
   Future<void> startAfrobeatLoop() async {
     try {
@@ -161,6 +245,103 @@ class SoundService {
     } else {
       await startAfrobeatLoop();
       return _isLoopPlaying;
+    }
+  }
+
+  StreamSubscription? _karaokeCompleteSub;
+
+  /// Streams real audio for the active Karaoke song performance.
+  /// When a preview snippet finishes, transitions smoothly to the rhythm backing track
+  /// so the audio plays continuously throughout the full length of the song performance
+  /// without abruptly restarting the vocal clip at 50 seconds!
+  Future<void> playKaraokeAudio(String? previewUrl) async {
+    _currentKaraokeUrl = previewUrl;
+    try {
+      _karaokeCompleteSub?.cancel();
+      _karaokeCompleteSub = null;
+      _karaokePlayer ??= AudioPlayer();
+      await _karaokePlayer!.stop();
+      _isKaraokePlaying = false;
+
+      if (previewUrl != null && previewUrl.trim().isNotEmpty) {
+        if (_isLoopPlaying) {
+          await stopAfrobeatLoop();
+        }
+        await _karaokePlayer!.setReleaseMode(ReleaseMode.stop);
+        await _karaokePlayer!.setVolume(_isKaraokeMuted ? 0.0 : 1.0);
+        await _karaokePlayer!.play(UrlSource(previewUrl.trim()));
+        _isKaraokePlaying = true;
+
+        // When the audio preview ends (typically 30-50s on iTunes), seamlessly
+        // transition to the backing rhythm groove so music continues for the full 5+ minutes
+        // without looping the vocals back to the beginning!
+        _karaokeCompleteSub = _karaokePlayer!.onPlayerComplete.listen((_) async {
+          debugPrint('[SoundService] Audio preview completed; maintaining backing rhythm for full song');
+          await startAfrobeatLoop();
+        });
+      } else {
+        await startAfrobeatLoop();
+        _isKaraokePlaying = true;
+      }
+    } catch (e) {
+      try {
+        await startAfrobeatLoop();
+        _isKaraokePlaying = true;
+      } catch (_) {}
+    }
+  }
+
+  /// Stops any currently playing karaoke stream and backing loop
+  Future<void> stopKaraokeAudio() async {
+    _karaokeCompleteSub?.cancel();
+    _karaokeCompleteSub = null;
+    try {
+      await _karaokePlayer?.stop();
+    } catch (_) {}
+    try {
+      await stopAfrobeatLoop();
+    } catch (_) {}
+    _isKaraokePlaying = false;
+    _currentKaraokeUrl = null;
+  }
+
+  /// Toggle mute for karaoke playback
+  Future<void> toggleKaraokeMute() async {
+    _isKaraokeMuted = !_isKaraokeMuted;
+    try {
+      if (_karaokePlayer != null) {
+        await _karaokePlayer!.setVolume(_isKaraokeMuted ? 0.0 : 1.0);
+      }
+      if (_loopPlayer != null) {
+        await _loopPlayer!.setVolume(_isKaraokeMuted ? 0.0 : 1.0);
+      }
+    } catch (_) {}
+  }
+
+  /// Replay the active track audio from the very start (0:00)
+  Future<void> replayKaraokeAudio() async {
+    try {
+      _karaokeCompleteSub?.cancel();
+      _karaokeCompleteSub = null;
+      await stopAfrobeatLoop();
+      if (_karaokePlayer != null && _currentKaraokeUrl != null && _currentKaraokeUrl!.isNotEmpty) {
+        await _karaokePlayer!.seek(Duration.zero);
+        await _karaokePlayer!.resume();
+        _isKaraokePlaying = true;
+        _karaokeCompleteSub = _karaokePlayer!.onPlayerComplete.listen((_) async {
+          await startAfrobeatLoop();
+        });
+      } else if (_currentKaraokeUrl != null && _currentKaraokeUrl!.isNotEmpty) {
+        await playKaraokeAudio(_currentKaraokeUrl);
+      } else {
+        await startAfrobeatLoop();
+      }
+    } catch (_) {
+      if (_currentKaraokeUrl != null && _currentKaraokeUrl!.isNotEmpty) {
+        await playKaraokeAudio(_currentKaraokeUrl);
+      } else {
+        await startAfrobeatLoop();
+      }
     }
   }
 
@@ -427,6 +608,48 @@ class SoundService {
     addHit(beatDur * 2.75, 0.2, (t) => 0.35 * math.sin(2 * math.pi * 280 * t) * math.exp(-t * 14));
     addHit(beatDur * 3.5, 0.2, (t) => 0.35 * math.sin(2 * math.pi * 210 * t) * math.exp(-t * 14));
 
+    return _createWav(list, sampleRate: sr);
+  }
+
+  /// Piercing referee pea whistle (2850Hz & 3150Hz beating tones with frequency flutter)
+  static Uint8List _generateWhistleWav() {
+    const sr = 22050;
+    const dur = 0.50;
+    final count = (sr * dur).toInt();
+    final list = <double>[];
+    var p1 = 0.0, p2 = 0.0;
+    for (var i = 0; i < count; i++) {
+      final t = i / sr;
+      final flutter = 1.0 + 0.08 * math.sin(2 * math.pi * 26.0 * t);
+      p1 += 2 * math.pi * (2850.0 * flutter) / sr;
+      p2 += 2 * math.pi * (3150.0 * flutter) / sr;
+      final env = t < 0.04 ? (t / 0.04) : (t > dur - 0.08 ? (dur - t) / 0.08 : 1.0);
+      final s = (0.5 * math.sin(p1) + 0.45 * math.sin(p2)) * env;
+      list.add(s.clamp(-1.0, 1.0));
+    }
+    return _createWav(list, sampleRate: sr);
+  }
+
+  /// Classic stadium vuvuzela buzzing B-flat (~233Hz) horn with brassy upper harmonics
+  static Uint8List _generateVuvuzelaWav() {
+    const sr = 22050;
+    const dur = 0.65;
+    final count = (sr * dur).toInt();
+    final list = <double>[];
+    var p1 = 0.0, p2 = 0.0, p3 = 0.0, p4 = 0.0;
+    final rng = math.Random(10);
+    for (var i = 0; i < count; i++) {
+      final t = i / sr;
+      final jitter = (rng.nextDouble() - 0.5) * 4.0;
+      final f = 233.0 + jitter;
+      p1 += 2 * math.pi * f / sr;
+      p2 += 2 * math.pi * (f * 2) / sr;
+      p3 += 2 * math.pi * (f * 3) / sr;
+      p4 += 2 * math.pi * (f * 4) / sr;
+      final env = t < 0.08 ? (t / 0.08) : (t > dur - 0.12 ? (dur - t) / 0.12 : 1.0);
+      final s = (0.45 * math.sin(p1) + 0.3 * math.sin(p2) + 0.2 * math.sin(p3) + 0.12 * math.sin(p4)) * env;
+      list.add(s.clamp(-1.0, 1.0));
+    }
     return _createWav(list, sampleRate: sr);
   }
 }

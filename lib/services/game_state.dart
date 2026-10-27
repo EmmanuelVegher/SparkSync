@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:math';
+import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:flutter/widgets.dart';
 import '../models/models.dart';
+import 'football_service.dart';
 import 'local_persistence_service.dart';
 import 'location_service.dart';
 import 'nvidia_avatar_service.dart';
@@ -44,6 +45,24 @@ class GameState extends ChangeNotifier {
     _initVenueChats();
     _initTwoGoRooms();
     _initLocalPersistence();
+  }
+
+  // Apple Theme Mode (Dark by default, toggles between Dark and Light)
+  ThemeMode _themeMode = ThemeMode.dark;
+  ThemeMode get themeMode => _themeMode;
+  bool get isDarkMode => _themeMode == ThemeMode.dark;
+
+  void toggleTheme() {
+    _themeMode = (_themeMode == ThemeMode.dark) ? ThemeMode.light : ThemeMode.dark;
+    notifyListeners();
+    LocalPersistenceService().saveThemeMode(_themeMode);
+  }
+
+  void setThemeMode(ThemeMode mode) {
+    if (_themeMode == mode) return;
+    _themeMode = mode;
+    notifyListeners();
+    LocalPersistenceService().saveThemeMode(_themeMode);
   }
 
   // Current User (Defaults to Novice tier, synced dynamically from Supabase on login)
@@ -102,18 +121,55 @@ class GameState extends ChangeNotifier {
   int afrobeatPartyGoers = 1402;
   final List<Map<String, String>> afrobeatDjQueue = [];
 
-  // Afrobeat Vibe Room Live Karaoke Stage State
-  String karaokeSingerName = 'Tunde 👑';
+  // Afrobeat Vibe Room Live Karaoke Stage State (100% Live, starts Open)
+  String? karaokeSingerName; // Nullable when stage is open
   String karaokeSingerAvatar = '🎤';
-  String karaokeSingerRank = 'Master';
-  String karaokeSingerId = 'user_tunde';
-  KaraokeTrack karaokeCurrentTrack = KaraokeTrack.curatedTracks[0];
+  String karaokeSingerRank = 'Open Stage';
+  String? karaokeSingerId;
+  KaraokeTrack? karaokeCurrentTrack; // Nullable when stage is open
+  final List<KaraokeTrack> karaokeAvailableTracks = [...KaraokeTrack.curatedTracks];
   int karaokeElapsedSeconds = 0;
-  bool karaokeIsPlaying = true;
-  int karaokeClapCount = 1420;
-  int karaokeSprayedNairaTotal = 350;
+  bool karaokeIsPlaying = false; // Only true when someone is actively singing
+  int karaokeClapCount = 0; // Starts at 0 live
+  int karaokeSprayedNairaTotal = 0; // Starts at 0 live
   final List<Map<String, String>> karaokeMicQueue = [];
   bool isMoneyRainActive = false;
+
+  // Weekly Room Scheduling & Saturday Acapella Tournament State
+  RoomScheduleMode currentRoomScheduleMode = RoomScheduleModeExt.modeForDate(DateTime.now());
+  bool isAcapellaModeActive = false; // When true, background music is muted and contestant sings raw
+  bool isRegisteredForChallenge = false;
+  final List<TournamentContestant> challengeContestants = [];
+  bool isVotingPollActive = false;
+
+  void setRoomScheduleMode(RoomScheduleMode mode) {
+    currentRoomScheduleMode = mode;
+    isAcapellaModeActive = (mode == RoomScheduleMode.challenge);
+    notifyListeners();
+  }
+
+  bool registerInterestInMusicalChallenge() {
+    if (isRegisteredForChallenge) return false;
+    isRegisteredForChallenge = true;
+    challengeContestants.add(
+      TournamentContestant(
+        userId: user.username,
+        username: user.username,
+        avatarEmoji: user.avatarEmoji,
+        rankTitle: user.starRank.badgeTitle,
+        performanceOrder: challengeContestants.length + 1,
+      ),
+    );
+    notifyListeners();
+    return true;
+  }
+
+  void recordTournamentVote({required String performerName, required String voteType}) {
+    if (performerName == user.username) {
+      user.xp += 25;
+    }
+    notifyListeners();
+  }
 
   // Venue live chat rooms: venueId -> List<ChatMessage>
   final Map<String, List<ChatMessage>> venueChats = {};
@@ -166,8 +222,18 @@ class GameState extends ChangeNotifier {
         local.saveUser(user);
       }
 
-      // Auto-detect live location in background on launch via location dependency
-      detectLiveGpsLocation();
+      // Auto-detect live location in background on launch via location dependency only if not in travel mode
+      if (!user.isTravelMode) {
+        detectLiveGpsLocation();
+      } else {
+        final loc = LocationService();
+        _ensureCityRoomExists(
+          state: user.stateName,
+          city: loc.activeConfig.cityName,
+          lga: user.lgaName,
+          area: user.areaName,
+        );
+      }
 
       // Restore room latest snippets onto twoGoRooms
       final snippets = await local.restoreRoomLatestSnippets();
@@ -186,10 +252,21 @@ class GameState extends ChangeNotifier {
       for (final room in twoGoRooms) {
         final cached = await local.restoreRoomMessages(room.id, currentUserId);
         if (cached.isNotEmpty) {
-          twoGoRoomChats[room.id] = cached.length > 25 ? cached.sublist(cached.length - 25) : cached;
+          final clean = cached.where((m) =>
+            m.senderId != 'bot_host' &&
+            !m.text.contains('NEXT SINGER:') &&
+            !m.text.toLowerCase().contains('sheesh') &&
+            !m.text.toLowerCase().contains('shouted')
+          ).toList();
+          final rolling = clean.length > 25 ? clean.sublist(clean.length - 25) : clean;
+          twoGoRoomChats[room.id] = rolling;
+          if (clean.length != cached.length) {
+            local.saveRoomMessages(room.id, rolling);
+          }
         }
       }
 
+      _themeMode = await local.restoreThemeMode();
       notifyListeners();
     } catch (e) {
       debugPrint('[GameState] _initLocalPersistence error: $e');
@@ -206,6 +283,7 @@ class GameState extends ChangeNotifier {
           lga: loc.currentLga,
           area: loc.currentArea,
           country: loc.currentCountry,
+          isTravelMode: false,
         );
         user.title = '${loc.activeConfig.cityName} Resident';
         venues = List.from(loc.activeConfig.venues);
@@ -214,6 +292,12 @@ class GameState extends ChangeNotifier {
           loc.currentCity,
           userLat: loc.userLatitude,
           userLon: loc.userLongitude,
+        );
+        _ensureCityRoomExists(
+          state: loc.currentState,
+          city: loc.activeConfig.cityName,
+          lga: loc.currentLga,
+          area: loc.currentArea,
         );
         LocalPersistenceService().saveUser(user);
         notifyListeners();
@@ -229,11 +313,19 @@ class GameState extends ChangeNotifier {
     required String area,
     String? city,
     String country = 'Nigeria',
+    bool isTravelMode = false,
   }) {
-    user.setDynamicLocation(state: state, lga: lga, area: area, country: country);
+    user.setDynamicLocation(
+      state: state,
+      lga: lga,
+      area: area,
+      country: country,
+      isTravelMode: isTravelMode,
+    );
     final loc = LocationService();
     loc.setCustomLocation(state: state, lga: lga, area: area, city: city, country: country);
-    user.title = '${loc.activeConfig.cityName} Resident';
+    final effectiveCity = loc.activeConfig.cityName;
+    user.title = isTravelMode ? '$effectiveCity Traveler ✈️' : '$effectiveCity Resident';
     venues = List.from(loc.activeConfig.venues);
     hustles = List.from(loc.activeConfig.hustles);
     discoveryProfiles = loc.getProfilesForCity(
@@ -241,8 +333,114 @@ class GameState extends ChangeNotifier {
       userLat: loc.userLatitude,
       userLon: loc.userLongitude,
     );
+    _ensureCityRoomExists(
+      state: state,
+      city: effectiveCity,
+      lga: lga,
+      area: area,
+    );
     LocalPersistenceService().saveUser(user);
     notifyListeners();
+  }
+
+  void _ensureCityRoomExists({
+    required String state,
+    required String city,
+    required String lga,
+    required String area,
+  }) {
+    final cleanCity = city.trim();
+    if (cleanCity.isEmpty) return;
+
+    final roomId = 'room_${cleanCity.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}_hub';
+
+    // Check if a room matching this city already exists
+    final existingIndex = twoGoRooms.indexWhere(
+      (r) => r.id == roomId || (r.city != null && r.city!.toLowerCase() == cleanCity.toLowerCase()),
+    );
+
+    if (existingIndex != -1) {
+      // Elevate the matching city room to the front so travelers see it first
+      final existing = twoGoRooms.removeAt(existingIndex);
+      twoGoRooms.insert(0, existing);
+      return;
+    }
+
+    // Dynamic Nigerian City Lounges
+    final details = _getCityRoomDetails(cleanCity, state, lga);
+    final newRoom = TwoGoChatRoom(
+      id: roomId,
+      name: '$cleanCity: ${details.$2}',
+      category: 'city',
+      city: cleanCity,
+      activeOnline: 0,
+      minStarRank: TwoGoStarRank.novice,
+      latestMessage: 'Welcome to $cleanCity! Drop in and connect with locals. ✈️✨',
+      description: details.$3,
+      iconEmoji: details.$1,
+    );
+
+    twoGoRooms.insert(0, newRoom);
+  }
+
+  (String, String, String) _getCityRoomDetails(
+    String city,
+    String state,
+    String lga,
+  ) {
+    final c = city.toLowerCase();
+    final s = state.toLowerCase();
+
+    if (c.contains('abuja') || s.contains('fct')) {
+      return ('🏛️', 'Maitama High Society', 'Diplomatic vibes, cool Abuja evenings, and polished conversations.');
+    }
+    if (c.contains('lagos') || s.contains('lagos')) {
+      return ('🔥', 'Flirt & Mingle', 'Rapid-fire Lagos dating banter, linkups, and weekend plans.');
+    }
+    if (c.contains('port harcourt') || c.contains('ph') || s.contains('rivers')) {
+      return ('⚓', 'Oil City Singles', 'Garden city energy, bole discussions, and real connections.');
+    }
+    if (c.contains('minna') || s.contains('niger')) {
+      return ('⛰️', 'Minna & Suleja Vibe', 'Zuma Rock energy, Minna singles, and weekend road trip plans.');
+    }
+    if (c.contains('kano') || s.contains('kano')) {
+      return ('🕌', 'Ancient City & Dala Lounge', 'Kano commerce, cultural banter, and evening chats.');
+    }
+    if (c.contains('enugu') || s.contains('enugu')) {
+      return ('⛰️', 'Coal City & 042 Hub', 'Eastern vibes, fresh palm wine discussions, and nightlife linkups.');
+    }
+    if (c.contains('ibadan') || s.contains('oyo')) {
+      return ('🏛️', 'Pace Setter & Bodija Lounge', 'Brown roof warmth, UI gist, and relaxed weekend plans.');
+    }
+    if (c.contains('jos') || s.contains('plateau')) {
+      return ('🌲', 'Tin City & Rayfield Chill', 'Cool Jos breeze, music lovers, and plateau linkups.');
+    }
+    if (c.contains('kaduna') || s.contains('kaduna')) {
+      return ('🏰', 'Crocodile City & Barnawa Vibe', 'Northern elegance, Kaduna singles, and chill discussions.');
+    }
+    if (c.contains('calabar') || s.contains('cross river')) {
+      return ('🌴', 'Canaan City & Marina Lounge', 'Carnival vibes, rich culinary talk, and seaside linkups.');
+    }
+    if (c.contains('benin') || s.contains('edo')) {
+      return ('👑', 'Cradle of Culture & Ring Road', 'Ancient royalty, high-energy gist, and weekend celebrations.');
+    }
+    if (c.contains('uyo') || s.contains('akwa ibom')) {
+      return ('⚡', 'Orange City & Tropicana Lounge', 'Clean streets, rich cuisines, and modern southern vibes.');
+    }
+    if (c.contains('owerri') || s.contains('imo')) {
+      return ('🎉', 'Heartland & Ikenegbu Lounge', 'Boma night vibes, high energy hospitality, and linkups.');
+    }
+    if (c.contains('warri') || c.contains('asaba') || s.contains('delta')) {
+      return ('⚓', 'Oil City & Delta Hub', 'Sharp street banter, Delta pride, and authentic connections.');
+    }
+    if (c.contains('abeokuta') || s.contains('ogun')) {
+      return ('🗿', 'Rock City & Olumo Heights', 'Historic charm, creative culture, and Ogun connections.');
+    }
+    if (c.contains('ilorin') || s.contains('kwara')) {
+      return ('🕌', 'Harmony Hub & Fate Lounge', 'Warm hospitality, cultural fusion, and evening linkups.');
+    }
+
+    return ('🌆', '$city Central Lounge', 'Local connections, community updates, and vibrant social chats in $city.');
   }
 
   void _saveLatestSnippets() {
@@ -911,10 +1109,10 @@ class GameState extends ChangeNotifier {
         _triggerRandomLagosEvent();
       }
 
-      // Live Karaoke synchronized lyric progression clock
-      if (karaokeIsPlaying) {
+      // Live Karaoke synchronized lyric progression clock (only runs when active singer exists)
+      if (karaokeIsPlaying && karaokeCurrentTrack != null) {
         karaokeElapsedSeconds++;
-        if (karaokeElapsedSeconds >= karaokeCurrentTrack.durationSeconds) {
+        if (karaokeElapsedSeconds >= karaokeCurrentTrack!.durationSeconds) {
           rotateKaraokeSinger();
         } else {
           notifyListeners();
@@ -1513,7 +1711,7 @@ class GameState extends ChangeNotifier {
     final sampleLabels = {
       'kick': '🥁 dropped a HEAVY LOG DRUM! 💥',
       'conga': '🪘 dropped a CONGA BEAT! ✨',
-      'sheesh': '🗣️ shouted "SHEEEESH!" 🚀',
+      'sheesh': '🎵 dropped a "Sheesh" sound effect! ✨',
       'sax': '🎷 played a SWEET SAX LICK! 🎶',
       'bell': '🔔 struck the AGÔGO BELL! 🔔',
       'airhorn': '📣 blasted the CLUB AIRHORN! 🔥🔥🔥',
@@ -1775,24 +1973,24 @@ class GameState extends ChangeNotifier {
   void clapForKaraokeSinger() {
     karaokeClapCount++;
     // If singer is current user, award them performance XP
-    if (karaokeSingerName.contains(user.username)) {
+    if (karaokeSingerName != null && karaokeSingerName!.contains(user.username)) {
       user.xp += 10;
     }
 
     // Every 25 claps or milestone, play celebratory cheer sound
-    if (karaokeClapCount % 25 == 0) {
+    if (karaokeClapCount % 25 == 0 && karaokeClapCount > 0) {
       SoundService().playAfrobeatSample('cheer');
       final roomId = 'room_afrobeat_vibes';
       final list = twoGoRoomChats[roomId] ?? [];
       final cheerMsg = TwoGoRoomMessage(
         id: 'clap_${DateTime.now().millisecondsSinceEpoch}',
         roomId: roomId,
-        senderId: 'bot_host',
-        senderName: 'Lounge Host',
+        senderId: 'lounge_crowd',
+        senderName: 'Lounge Crowd',
         senderAvatar: '👏',
         senderRank: TwoGoStarRank.master,
         hasNeonGlow: true,
-        text: '👏 MASSIVE APPLAUSE: The crowd reached $karaokeClapCount claps for $karaokeSingerName singing "${karaokeCurrentTrack.title}"! 🔥',
+        text: '👏 MASSIVE APPLAUSE: The crowd reached $karaokeClapCount claps in the lounge! 🔥',
         timestamp: DateTime.now(),
         isAnnouncement: true,
         isSystem: true,
@@ -1809,6 +2007,9 @@ class GameState extends ChangeNotifier {
   /// Spray Naira (50 Credits): 70% deposited directly to Singer's wallet balance (35 🪙),
   /// 30% house cut (15 🪙), Spender gains +100 Clout XP, Singer gains +120 XP!
   String? sprayNairaOnSinger() {
+    if (karaokeSingerName == null) {
+      return 'The stage is currently open! Tap "Search & Sing" to take the mic and earn sprayed credits.';
+    }
     const fee = 50;
     if (user.walletBalance < fee) {
       return 'Need at least 50 🪙 to spray Naira on stage! Complete hustles to fund your balling.';
@@ -1822,7 +2023,7 @@ class GameState extends ChangeNotifier {
 
     // 70% Revenue Split: 35 Credits to Singer
     const singerPayout = 35;
-    if (karaokeSingerName.contains(user.username)) {
+    if (karaokeSingerName != null && karaokeSingerName!.contains(user.username)) {
       // User is singing on stage! Deposit directly into active balance
       user.walletBalance += singerPayout;
       user.xp += 120;
@@ -1874,8 +2075,19 @@ class GameState extends ChangeNotifier {
     return null;
   }
 
+  /// Spray or gift coins for karaoke / voting boost
+  String? sprayNairaForKaraoke({int amount = 50}) {
+    karaokeSprayedNairaTotal += amount;
+    isMoneyRainActive = true;
+    notifyListeners();
+    return null;
+  }
+
   /// Buy Singer a Cocktail (50 Credits, sends virtual drink, +150 XP)
   String? buySingerCocktail() {
+    if (karaokeSingerName == null) {
+      return 'The stage is currently open! Be the first to take the mic and sing!';
+    }
     const fee = 50;
     if (user.walletBalance < fee) {
       return 'Need at least 50 🪙 for a signature cocktail!';
@@ -1926,22 +2138,35 @@ class GameState extends ChangeNotifier {
     user.walletBalance -= fee;
     user.xp += 60;
 
+    // Ensure track duration dynamically spans complete song if lyrics exceed duration
+    if (track.lyrics.isNotEmpty && track.lyrics.last.seconds > track.durationSeconds - 6) {
+      track = track.copyWith(durationSeconds: track.lyrics.last.seconds + 6);
+    }
+
+    // Register track in dynamic catalog if not already present
+    final existingIdx = karaokeAvailableTracks.indexWhere((t) => t.id == track.id);
+    if (existingIdx == -1) {
+      karaokeAvailableTracks.add(track);
+    } else {
+      karaokeAvailableTracks[existingIdx] = track;
+    }
+
     final roomId = 'room_afrobeat_vibes';
     final list = twoGoRoomChats[roomId] ?? [];
     final now = DateTime.now();
 
-    // If current singer is a resident bot, take over the stage immediately!
-    final isBotSinger = karaokeSingerName.contains('Tunde') ||
-        karaokeSingerName.contains('Amaka') ||
-        karaokeSingerName.contains('Chinedu');
+    final currentUserId = SupabaseService().currentUser?.id ?? 'user_local';
 
-    if (isBotSinger && karaokeMicQueue.isEmpty) {
+    // If stage is open, take the stage immediately; otherwise join the queue:
+    if (karaokeSingerName == null && karaokeMicQueue.isEmpty) {
       karaokeSingerName = '${user.username} 👑';
       karaokeSingerAvatar = user.avatarEmoji;
       karaokeSingerRank = user.starRank.rankName;
-      karaokeSingerId = SupabaseService().currentUser?.id ?? 'user_local';
+      karaokeSingerId = currentUserId;
       karaokeCurrentTrack = track;
       karaokeElapsedSeconds = 0;
+      karaokeIsPlaying = true;
+      SoundService().playKaraokeAudio(track.audioPreviewUrl);
 
       final stageMsg = TwoGoRoomMessage(
         id: 'mic_takeover_${now.millisecondsSinceEpoch}',
@@ -1951,7 +2176,7 @@ class GameState extends ChangeNotifier {
         senderAvatar: '🎤',
         senderRank: user.starRank,
         hasNeonGlow: true,
-        text: '🎤 [STAGE TAKEOVER]: ${user.username} is now on the Karaoke Stage singing "${track.title}"! Show love or spray Naira! 🎶✨',
+        text: '🎤 [STAGE LIVE]: ${user.username} took the Karaoke Stage singing "${track.title}"! Show love or spray Naira! 🎶✨',
         timestamp: now,
         isAnnouncement: true,
         isUser: true,
@@ -1962,6 +2187,7 @@ class GameState extends ChangeNotifier {
         'name': '${user.username} 👑',
         'avatar': user.avatarEmoji,
         'rank': user.starRank.rankName,
+        'userId': SupabaseService().currentUser?.id ?? 'user_local',
         'trackId': track.id,
         'trackTitle': track.title,
       });
@@ -1974,7 +2200,7 @@ class GameState extends ChangeNotifier {
         senderAvatar: '🎤',
         senderRank: user.starRank,
         hasNeonGlow: true,
-        text: '🎤 ${user.username} signed up on the Mic Queue (#${karaokeMicQueue.length} in line) for "${track.title}"!',
+        text: '🎤 ${user.username} joined the Mic Queue (#${karaokeMicQueue.length} in line) for "${track.title}"!',
         timestamp: now,
         isAnnouncement: true,
         isUser: true,
@@ -1992,6 +2218,24 @@ class GameState extends ChangeNotifier {
     return null;
   }
 
+  /// Switch the active track directly if the user is currently on stage
+  void switchCurrentKaraokeTrack(KaraokeTrack track) {
+    if (track.lyrics.isNotEmpty && track.lyrics.last.seconds > track.durationSeconds - 6) {
+      track = track.copyWith(durationSeconds: track.lyrics.last.seconds + 6);
+    }
+    final existingIdx = karaokeAvailableTracks.indexWhere((t) => t.id == track.id);
+    if (existingIdx == -1) {
+      karaokeAvailableTracks.add(track);
+    } else {
+      karaokeAvailableTracks[existingIdx] = track;
+    }
+    karaokeCurrentTrack = track;
+    karaokeElapsedSeconds = 0;
+    karaokeIsPlaying = true;
+    SoundService().playKaraokeAudio(track.audioPreviewUrl);
+    notifyListeners();
+  }
+
   /// Rotates singer when current song completes
   void rotateKaraokeSinger() {
     karaokeElapsedSeconds = 0;
@@ -2000,52 +2244,361 @@ class GameState extends ChangeNotifier {
       karaokeSingerName = next['name'] ?? 'Guest Singer';
       karaokeSingerAvatar = next['avatar'] ?? '🎤';
       karaokeSingerRank = next['rank'] ?? 'Master';
+      karaokeSingerId = next['userId'];
       final trackId = next['trackId'] ?? 'wizkid_essence';
-      karaokeCurrentTrack = KaraokeTrack.curatedTracks.firstWhere(
+      var selectedTrack = karaokeAvailableTracks.firstWhere(
         (t) => t.id == trackId,
         orElse: () => KaraokeTrack.curatedTracks[0],
       );
-    } else {
-      // Rotate resident AI singers
-      if (karaokeSingerName.contains('Tunde')) {
-        karaokeSingerName = 'Amaka 🎤';
-        karaokeSingerAvatar = '💁‍♀️';
-        karaokeSingerRank = 'Expert';
-        karaokeCurrentTrack = KaraokeTrack.curatedTracks[1]; // Burna Boy - Last Last
-      } else if (karaokeSingerName.contains('Amaka')) {
-        karaokeSingerName = 'Chinedu 🌟';
-        karaokeSingerAvatar = '😎';
-        karaokeSingerRank = 'Veteran';
-        karaokeCurrentTrack = KaraokeTrack.curatedTracks[2]; // Asake - Lonely At The Top
-      } else {
-        karaokeSingerName = 'Tunde 👑';
-        karaokeSingerAvatar = '🎤';
-        karaokeSingerRank = 'Master';
-        karaokeCurrentTrack = KaraokeTrack.curatedTracks[0]; // Wizkid - Essence
+      if (selectedTrack.lyrics.isNotEmpty && selectedTrack.lyrics.last.seconds > selectedTrack.durationSeconds - 6) {
+        selectedTrack = selectedTrack.copyWith(durationSeconds: selectedTrack.lyrics.last.seconds + 6);
       }
+      karaokeCurrentTrack = selectedTrack;
+      karaokeIsPlaying = true;
+      SoundService().playKaraokeAudio(karaokeCurrentTrack?.audioPreviewUrl);
+
+      final roomId = 'room_afrobeat_vibes';
+      final list = twoGoRoomChats[roomId] ?? [];
+      final rotateMsg = TwoGoRoomMessage(
+        id: 'k_rot_${DateTime.now().millisecondsSinceEpoch}',
+        roomId: roomId,
+        senderId: karaokeSingerId ?? 'user_stage',
+        senderName: karaokeSingerName ?? 'Singer',
+        senderAvatar: karaokeSingerAvatar,
+        senderRank: TwoGoStarRank.master,
+        hasNeonGlow: true,
+        text: '🎤 NEXT SINGER: $karaokeSingerName just took the mic singing "${karaokeCurrentTrack?.title}"! Clap or spray Naira! 🎶',
+        timestamp: DateTime.now(),
+        isAnnouncement: true,
+        isSystem: true,
+      );
+      list.add(rotateMsg);
+      final rolling = list.length > 25 ? list.sublist(list.length - 25) : list;
+      twoGoRoomChats[roomId] = rolling;
+      LocalPersistenceService().saveRoomMessages(roomId, rolling);
+      notifyListeners();
+    } else {
+      // QUEUE IS EMPTY: Stage is completely OPEN and IDLE!
+      // NO FAKE BOT ROTATION! No Tunde, Amaka, Chinedu loops!
+      karaokeSingerName = null;
+      karaokeSingerAvatar = '🎤';
+      karaokeSingerRank = 'Open Stage';
+      karaokeSingerId = null;
+      karaokeCurrentTrack = null;
+      karaokeIsPlaying = false;
+      karaokeElapsedSeconds = 0;
+      SoundService().stopKaraokeAudio();
+      notifyListeners();
+    }
+  }
+
+  /// Stops karaoke playback and frees the stage
+  void stopKaraokeStage() {
+    karaokeSingerName = null;
+    karaokeSingerAvatar = '🎤';
+    karaokeSingerRank = 'Open Stage';
+    karaokeSingerId = null;
+    karaokeCurrentTrack = null;
+    karaokeIsPlaying = false;
+    karaokeElapsedSeconds = 0;
+    SoundService().stopKaraokeAudio();
+    notifyListeners();
+  }
+
+  /// Restarts the active karaoke performance from the very beginning (0:00).
+  /// Synchronously resets elapsed lyrics seconds and rewinds the audio to 0:00.
+  void restartKaraokeTrack() {
+    karaokeElapsedSeconds = 0;
+    SoundService().replayKaraokeAudio();
+    notifyListeners();
+  }
+
+  /// Finishes the current karaoke song early and moves to the next singer or opens the stage
+  void finishCurrentKaraokeSong() {
+    rotateKaraokeSinger();
+  }
+
+  // ==========================================
+  // NAIJA BANTER & PREMIER LEAGUE GAMIFICATION
+  // ==========================================
+
+  MatchPredictionPool _activePredictionPool = const MatchPredictionPool(
+    id: 'pool_ars_che_01',
+    homeTeam: 'Arsenal',
+    awayTeam: 'Chelsea',
+    homeBadge: '🔴',
+    awayBadge: '🔵',
+    league: 'Premier League Super Sunday',
+    matchTime: 'Today • 17:30 WAT',
+    totalPoolCredits: 420,
+    entryCostCredits: 10,
+    predictionsCount: {
+      '1': 28, // Arsenal win
+      'X': 6,  // Draw
+      '2': 14, // Chelsea win
+    },
+    userPrediction: null,
+  );
+  MatchPredictionPool get activePredictionPool => _activePredictionPool;
+
+  /// Fetch and refresh live football match from TheSportsDB free endpoint for any league
+  Future<void> refreshLiveMatchPool({String leagueId = '4328'}) async {
+    final livePool = await FootballService().fetchNextLiveMatch(leagueId: leagueId);
+    if (livePool != null) {
+      // Keep user's active stake if they already staked on this match
+      final userStake = (_activePredictionPool.id == livePool.id)
+          ? _activePredictionPool.userPrediction
+          : null;
+
+      _activePredictionPool = livePool.copyWith(userPrediction: userStake);
+      notifyListeners();
+    }
+  }
+
+  /// Backwards compatible helper for Premier League
+  Future<void> refreshLivePremierLeaguePool() => refreshLiveMatchPool(leagueId: '4328');
+
+  /// Stake on the match prediction pool (10 Credits, +50 XP, unlocks Certified Pundit ⚽ badge)
+  String? submitMatchPrediction({required String poolId, required String outcome}) {
+    if (user.walletBalance < _activePredictionPool.entryCostCredits) {
+      return 'Need ${_activePredictionPool.entryCostCredits} 🪙 to stake on the Prediction Pool! Top up your wallet to join.';
+    }
+    if (_activePredictionPool.userPrediction != null) {
+      final prev = _activePredictionPool.userPrediction == '1'
+          ? _activePredictionPool.homeTeam
+          : _activePredictionPool.userPrediction == '2'
+              ? _activePredictionPool.awayTeam
+              : 'Draw';
+      return 'You already staked on $prev for this matchday!';
     }
 
-    final roomId = 'room_afrobeat_vibes';
-    final list = twoGoRoomChats[roomId] ?? [];
-    final rotateMsg = TwoGoRoomMessage(
-      id: 'k_rot_${DateTime.now().millisecondsSinceEpoch}',
-      roomId: roomId,
-      senderId: 'bot_host',
-      senderName: 'Lounge Host',
-      senderAvatar: '🎤',
-      senderRank: TwoGoStarRank.master,
-      hasNeonGlow: true,
-      text: '🎤 NEXT SINGER: $karaokeSingerName just took the mic singing "${karaokeCurrentTrack.title}"! Clap or spray Naira! 🎶',
-      timestamp: DateTime.now(),
-      isAnnouncement: true,
-      isSystem: true,
+    user.walletBalance -= _activePredictionPool.entryCostCredits;
+    user.xp += 50;
+    user.isCertifiedPundit = true;
+
+    final counts = Map<String, int>.from(_activePredictionPool.predictionsCount);
+    counts[outcome] = (counts[outcome] ?? 0) + 1;
+
+    _activePredictionPool = _activePredictionPool.copyWith(
+      totalPoolCredits: _activePredictionPool.totalPoolCredits + _activePredictionPool.entryCostCredits,
+      predictionsCount: counts,
+      userPrediction: outcome,
     );
-    list.add(rotateMsg);
+
+    SoundService().playCoinEarned();
+
+    final outcomeName = outcome == '1'
+        ? '${_activePredictionPool.homeTeam} (${_activePredictionPool.homeBadge})'
+        : outcome == '2'
+            ? '${_activePredictionPool.awayTeam} (${_activePredictionPool.awayBadge})'
+            : 'Draw (X)';
+
+    final roomId = 'room_naija_banter';
+    final list = twoGoRoomChats[roomId] ?? [];
+    final now = DateTime.now();
+    final currentUserId = SupabaseService().currentUser?.id ?? 'user_${now.millisecondsSinceEpoch}';
+
+    final stakeMsg = TwoGoRoomMessage(
+      id: 'stake_${now.millisecondsSinceEpoch}',
+      roomId: roomId,
+      senderId: currentUserId,
+      senderName: user.username,
+      senderAvatar: user.avatarEmoji,
+      senderRank: user.starRank,
+      hasNeonGlow: true,
+      text: '⚽ Staked 10 🪙 on $outcomeName! Unlocked Certified Pundit 🏆 (+50 XP)',
+      timestamp: now,
+      isAnnouncement: true,
+      isUser: true,
+    );
+
+    list.add(stakeMsg);
+    final rolling = list.length > 25 ? list.sublist(list.length - 25) : list;
+    twoGoRoomChats[roomId] = rolling;
+    updateRoomLatestMessage(roomId, '${user.username}: Staked on $outcomeName! ⚽');
+
+    LocalPersistenceService().saveRoomMessages(roomId, rolling);
+    LocalPersistenceService().saveUser(user);
+
+    if (SupabaseService().currentUser != null && SupabaseService().isConfigured) {
+      SupabaseService().sendRoomMessage(
+        roomId: roomId,
+        senderId: currentUserId,
+        senderName: user.username,
+        senderAvatar: user.avatarEmoji,
+        senderRank: user.starRank.rankName,
+        text: '⚽ Staked 10 🪙 on $outcomeName! Unlocked Certified Pundit 🏆 (+50 XP)',
+        hasNeonGlow: true,
+        isAnnouncement: true,
+      );
+    }
+
+    notifyListeners();
+    return null;
+  }
+
+  /// Trigger interactive banter sound pad (Whistle, Vuvuzela, Goal, Airhorn, Sheesh/E Choke, Wotowoto)
+  String? triggerBanterSoundPad(String padId) {
+    const cost = 2;
+    if (user.walletBalance < cost) {
+      return 'Need 2 🪙 to blast a Banter Sound effect!';
+    }
+
+    user.walletBalance -= cost;
+    user.xp += 5;
+
+    SoundService().playBanterSound(padId);
+
+    final banterLabels = {
+      'whistle': '🚨 blew the REFEREE WHISTLE / VAR CHECK! 🛑',
+      'vuvuzela': '🎺 blasted the STADIUM VUVUZELA! 🔊🔊',
+      'goal': '⚽ roared GOAAAAAAL! 🥅🔥',
+      'airhorn': '📯 sounded the DERBY AIRHORN! 💥',
+      'sheesh': '😱 shouted "GOD QUANDO / E CHOKE!" 🔥',
+      'scratch': '💨 shouted "WOTOWOTO BANTER / RED CARD!" 🟥',
+    };
+    final actionLabel = banterLabels[padId.toLowerCase()] ?? '⚽ triggered stadium sound!';
+
+    final roomId = 'room_naija_banter';
+    final list = twoGoRoomChats[roomId] ?? [];
+    final now = DateTime.now();
+    final currentUserId = SupabaseService().currentUser?.id ?? 'user_${now.millisecondsSinceEpoch}';
+
+    final fxMsg = TwoGoRoomMessage(
+      id: 'banter_${now.millisecondsSinceEpoch}',
+      roomId: roomId,
+      senderId: currentUserId,
+      senderName: user.username,
+      senderAvatar: user.avatarEmoji,
+      senderRank: user.starRank,
+      hasNeonGlow: true,
+      text: '$actionLabel (-$cost 🪙)',
+      timestamp: now,
+      isAnnouncement: true,
+      isUser: true,
+    );
+
+    list.add(fxMsg);
+    final rolling = list.length > 25 ? list.sublist(list.length - 25) : list;
+    twoGoRoomChats[roomId] = rolling;
+    updateRoomLatestMessage(roomId, '${user.username}: $actionLabel');
+
+    LocalPersistenceService().saveRoomMessages(roomId, rolling);
+    LocalPersistenceService().saveUser(user);
+
+    if (SupabaseService().currentUser != null && SupabaseService().isConfigured) {
+      SupabaseService().sendRoomMessage(
+        roomId: roomId,
+        senderId: currentUserId,
+        senderName: user.username,
+        senderAvatar: user.avatarEmoji,
+        senderRank: user.starRank.rankName,
+        text: '$actionLabel (-$cost 🪙)',
+        hasNeonGlow: true,
+        isAnnouncement: true,
+      );
+    }
+
+    notifyListeners();
+    return null;
+  }
+
+  /// Update user's supported club flair and announce loyalty in room
+  void setSupportedClub(String club) {
+    user.supportedClub = club;
+    LocalPersistenceService().saveUser(user);
+
+    final roomId = 'room_naija_banter';
+    final list = twoGoRoomChats[roomId] ?? [];
+    final now = DateTime.now();
+    final currentUserId = SupabaseService().currentUser?.id ?? 'user_${now.millisecondsSinceEpoch}';
+
+    final flairMsg = TwoGoRoomMessage(
+      id: 'flair_${now.millisecondsSinceEpoch}',
+      roomId: roomId,
+      senderId: currentUserId,
+      senderName: user.username,
+      senderAvatar: user.avatarEmoji,
+      senderRank: user.starRank,
+      text: '🛡️ Pledged allegiance to $club! No shaking! 💪',
+      timestamp: now,
+      isAnnouncement: true,
+      isUser: true,
+    );
+    list.add(flairMsg);
     final rolling = list.length > 25 ? list.sublist(list.length - 25) : list;
     twoGoRoomChats[roomId] = rolling;
     LocalPersistenceService().saveRoomMessages(roomId, rolling);
 
+    if (SupabaseService().currentUser != null && SupabaseService().isConfigured) {
+      SupabaseService().sendRoomMessage(
+        roomId: roomId,
+        senderId: currentUserId,
+        senderName: user.username,
+        senderAvatar: user.avatarEmoji,
+        senderRank: user.starRank.rankName,
+        text: '🛡️ Pledged allegiance to $club! No shaking! 💪',
+        isAnnouncement: true,
+      );
+    }
+
     notifyListeners();
+  }
+
+  /// Send a Matchday Cocktail (50 Credits) to a rival fan as a flirtatious dating icebreaker
+  String? sendMatchdayCocktail({required String recipientName, required String rivalClub}) {
+    const cost = 50;
+    if (user.walletBalance < cost) {
+      return 'Need 50 🪙 to buy a Matchday Rivalry Cocktail 🍹!';
+    }
+
+    user.walletBalance -= cost;
+    user.xp += 40;
+    user.totalGiftsSent += 1;
+
+    SoundService().playMoneySpray();
+
+    final roomId = 'room_naija_banter';
+    final list = twoGoRoomChats[roomId] ?? [];
+    final now = DateTime.now();
+    final currentUserId = SupabaseService().currentUser?.id ?? 'user_${now.millisecondsSinceEpoch}';
+
+    final cocktailMsg = TwoGoRoomMessage(
+      id: 'cocktail_${now.millisecondsSinceEpoch}',
+      roomId: roomId,
+      senderId: currentUserId,
+      senderName: user.username,
+      senderAvatar: user.avatarEmoji,
+      senderRank: user.starRank,
+      hasNeonGlow: true,
+      text: '🍹 Bought a "Friendly Rivalry Cocktail" for $recipientName ($rivalClub)! "May the best team win, but drinks on me 😉" (-50 🪙)',
+      timestamp: now,
+      isAnnouncement: true,
+      isUser: true,
+    );
+    list.add(cocktailMsg);
+    final rolling = list.length > 25 ? list.sublist(list.length - 25) : list;
+    twoGoRoomChats[roomId] = rolling;
+    updateRoomLatestMessage(roomId, '${user.username}: Sent rivalry cocktail to $recipientName 🍹');
+
+    LocalPersistenceService().saveRoomMessages(roomId, rolling);
+    LocalPersistenceService().saveUser(user);
+
+    if (SupabaseService().currentUser != null && SupabaseService().isConfigured) {
+      SupabaseService().sendRoomMessage(
+        roomId: roomId,
+        senderId: currentUserId,
+        senderName: user.username,
+        senderAvatar: user.avatarEmoji,
+        senderRank: user.starRank.rankName,
+        text: '🍹 Bought a "Friendly Rivalry Cocktail" for $recipientName ($rivalClub)! "May the best team win, but drinks on me 😉" (-50 🪙)',
+        hasNeonGlow: true,
+        isAnnouncement: true,
+      );
+    }
+
+    notifyListeners();
+    return null;
   }
 
   bool useConsumable(ShopItem item) {

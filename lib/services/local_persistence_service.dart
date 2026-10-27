@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
 
@@ -28,6 +28,9 @@ class LocalPersistenceService {
   static const String _prefUserAvatarSkin = 'sparksync_user_avatar_skin';
   static const String _prefUserAvatarHair = 'sparksync_user_avatar_hair';
   static const String _prefUserAvatarOutfit = 'sparksync_user_avatar_outfit';
+  static const String _prefUserSupportedClub = 'sparksync_user_supported_club';
+  static const String _prefUserCertifiedPundit = 'sparksync_user_certified_pundit';
+  static const String _prefUserTravelMode = 'sparksync_user_travel_mode';
   static const String _prefRoomChatsPrefix = 'sparksync_room_chat_';
   static const String _prefRoomLatestSnippets = 'sparksync_room_latest_snippets';
 
@@ -61,6 +64,11 @@ class LocalPersistenceService {
       await prefs.setString(_prefUserLga, user.lgaName);
       await prefs.setString(_prefUserArea, user.areaName);
       await prefs.setString(_prefUserCountry, user.countryName);
+      if (user.supportedClub != null) {
+        await prefs.setString(_prefUserSupportedClub, user.supportedClub!);
+      }
+      await prefs.setBool(_prefUserCertifiedPundit, user.isCertifiedPundit);
+      await prefs.setBool(_prefUserTravelMode, user.isTravelMode);
     } catch (e) {
       debugPrint('[LocalPersistence] Error saving user stats: $e');
     }
@@ -130,7 +138,16 @@ class LocalPersistenceService {
       final vault = prefs.getStringList(_prefUserVaultPhotos);
       if (vault != null && vault.isNotEmpty) user.vaultPhotos = vault;
 
-      debugPrint('[LocalPersistence] Restored user: ${user.username}, XP=${user.xp}, Coins=${user.walletBalance}, Location=${user.dynamicLocationDisplay}, Verified=${user.isVerified}');
+      final club = prefs.getString(_prefUserSupportedClub);
+      if (club != null && club.isNotEmpty) user.supportedClub = club;
+
+      final pundit = prefs.getBool(_prefUserCertifiedPundit);
+      if (pundit != null) user.isCertifiedPundit = pundit;
+
+      final travel = prefs.getBool(_prefUserTravelMode);
+      if (travel != null) user.isTravelMode = travel;
+
+      debugPrint('[LocalPersistence] Restored user: ${user.username}, XP=${user.xp}, Coins=${user.walletBalance}, Location=${user.dynamicLocationDisplay}, TravelMode=${user.isTravelMode}, Verified=${user.isVerified}, Club=${user.supportedClub}');
     } catch (e) {
       debugPrint('[LocalPersistence] Error restoring user stats: $e');
     }
@@ -220,5 +237,25 @@ class LocalPersistenceService {
       }
     } catch (_) {}
     return {};
+  }
+
+  static const String _prefThemeMode = 'sparksync_theme_mode';
+
+  /// Save user's preferred theme mode (light or dark)
+  Future<void> saveThemeMode(ThemeMode mode) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefThemeMode, mode == ThemeMode.light ? 'light' : 'dark');
+    } catch (_) {}
+  }
+
+  /// Restore user's preferred theme mode
+  Future<ThemeMode> restoreThemeMode() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final val = prefs.getString(_prefThemeMode);
+      if (val == 'light') return ThemeMode.light;
+    } catch (_) {}
+    return ThemeMode.dark;
   }
 }

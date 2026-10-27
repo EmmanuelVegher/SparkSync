@@ -23,6 +23,7 @@ class DashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = gameState.user;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return AmbientParticleSky(
       child: SingleChildScrollView(
@@ -39,23 +40,23 @@ class DashboardScreen extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Column(
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'City Hub',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AppTheme.getTextColor(isDark),
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.5,
                         ),
                       ),
-                      SizedBox(height: 2),
+                      const SizedBox(height: 2),
                       Text(
                         'Rewards, local hustles, shop & chill venues',
                         style: TextStyle(
-                          color: AppTheme.textMuted,
+                          color: AppTheme.getSubtextColor(isDark),
                           fontSize: 12,
                         ),
                       ),
@@ -64,9 +65,13 @@ class DashboardScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF141926),
+                      color: isDark ? const Color(0xFF141926) : Colors.white,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFF222C42)),
+                      border: Border.all(
+                        color: isDark ? const Color(0xFF222C42) : const Color(0xFFE5E5EA),
+                        width: 0.5,
+                      ),
+                      boxShadow: AppTheme.getCardShadow(isDark),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -95,6 +100,7 @@ class DashboardScreen extends StatelessWidget {
                   Row(
                     children: [
                       _buildHubTile(
+                        context,
                         icon: '🎁',
                         title: 'Daily Spin',
                         subtitle: user.canClaimDailyGacha
@@ -113,6 +119,7 @@ class DashboardScreen extends StatelessWidget {
                       ),
                       const SizedBox(width: 10),
                       _buildHubTile(
+                        context,
                         icon: '🎒',
                         title: 'Bag & Shop',
                         subtitle: 'Snacks, items & flairs',
@@ -133,6 +140,7 @@ class DashboardScreen extends StatelessWidget {
                   Row(
                     children: [
                       _buildHubTile(
+                        context,
                         icon: '🌆',
                         title: 'Dating Venues',
                         subtitle: '${gameState.venues.length} local hotspots',
@@ -149,6 +157,7 @@ class DashboardScreen extends StatelessWidget {
                       ),
                       const SizedBox(width: 10),
                       _buildHubTile(
+                        context,
                         icon: user.isVerified ? '🎨' : '📸',
                         title: user.isVerified ? 'Avatar Studio' : 'Selfie Verify',
                         subtitle: user.isVerified ? 'Customize 2D look' : 'Verify for badge & XP',
@@ -185,16 +194,16 @@ class DashboardScreen extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Text('💼', style: TextStyle(fontSize: 18)),
-                    SizedBox(width: 6),
+                    const Text('💼', style: TextStyle(fontSize: 18)),
+                    const SizedBox(width: 6),
                     Text(
                       'City Jobs & Work',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: AppTheme.getTextColor(isDark),
                       ),
                     ),
                   ],
@@ -228,13 +237,15 @@ class DashboardScreen extends StatelessWidget {
               return Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: AppTheme.cardSurface,
+                  color: AppTheme.getCardSurface(isDark),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: isCoolingDown
                         ? AppTheme.neonEmerald.withValues(alpha: 0.5)
-                        : AppTheme.cardBorder,
+                        : AppTheme.getCardBorder(isDark),
+                    width: 0.5,
                   ),
+                  boxShadow: AppTheme.getCardShadow(isDark),
                 ),
                 child: Row(
                   children: [
@@ -242,7 +253,7 @@ class DashboardScreen extends StatelessWidget {
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: AppTheme.darkShimmer,
+                        color: AppTheme.getSecondarySurface(isDark),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Center(
@@ -256,18 +267,18 @@ class DashboardScreen extends StatelessWidget {
                         children: [
                           Text(
                             job.title,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 14,
-                              color: Colors.white,
+                              color: AppTheme.getTextColor(isDark),
                             ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             job.description,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
-                              color: AppTheme.textMuted,
+                              color: AppTheme.getSubtextColor(isDark),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -296,8 +307,8 @@ class DashboardScreen extends StatelessWidget {
                               ),
                               Text(
                                 '• ${job.hood}',
-                                style: const TextStyle(
-                                  color: AppTheme.skyCyan,
+                                style: TextStyle(
+                                  color: isDark ? AppTheme.skyCyan : const Color(0xFF0071E3),
                                   fontSize: 10,
                                 ),
                               ),
@@ -330,8 +341,8 @@ class DashboardScreen extends StatelessWidget {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.neonEmerald,
                         foregroundColor: Colors.black,
-                        disabledBackgroundColor: AppTheme.darkShimmer,
-                        disabledForegroundColor: AppTheme.textMuted,
+                        disabledBackgroundColor: isDark ? AppTheme.darkShimmer : const Color(0xFFE5E5EA),
+                        disabledForegroundColor: isDark ? AppTheme.textMuted : const Color(0xFF8E8E93),
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -359,16 +370,16 @@ class DashboardScreen extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Text('🌆', style: TextStyle(fontSize: 18)),
-                    SizedBox(width: 6),
+                    const Text('🌆', style: TextStyle(fontSize: 18)),
+                    const SizedBox(width: 6),
                     Text(
                       'Live Dating Hotspots',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: AppTheme.getTextColor(isDark),
                       ),
                     ),
                   ],
@@ -420,9 +431,10 @@ class DashboardScreen extends StatelessWidget {
                     width: 200,
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: AppTheme.cardSurface,
+                      color: AppTheme.getCardSurface(isDark),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppTheme.cardBorder),
+                      border: Border.all(color: AppTheme.getCardBorder(isDark), width: 0.5),
+                      boxShadow: AppTheme.getCardShadow(isDark),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -457,10 +469,10 @@ class DashboardScreen extends StatelessWidget {
                         const Spacer(),
                         Text(
                           venue.name,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
-                            color: Colors.white,
+                            color: AppTheme.getTextColor(isDark),
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -489,7 +501,8 @@ class DashboardScreen extends StatelessWidget {
   );
 }
 
-  Widget _buildHubTile({
+  Widget _buildHubTile(
+    BuildContext context, {
     required String icon,
     required String title,
     required String subtitle,
@@ -497,16 +510,19 @@ class DashboardScreen extends StatelessWidget {
     String? badgeText,
     Color? badgeColor,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Expanded(
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
           decoration: BoxDecoration(
-            color: const Color(0xFF131926),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFF222C42)),
+            color: AppTheme.getCardSurface(isDark),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppTheme.getCardBorder(isDark), width: 0.5),
+            boxShadow: AppTheme.getCardShadow(isDark),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -519,7 +535,7 @@ class DashboardScreen extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: (badgeColor ?? AppTheme.brandCoral).withValues(alpha: 0.15),
+                        color: (badgeColor ?? AppTheme.brandCoral).withValues(alpha: isDark ? 0.15 : 0.12),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -538,8 +554,8 @@ class DashboardScreen extends StatelessWidget {
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppTheme.getTextColor(isDark),
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
                 ),
@@ -549,8 +565,8 @@ class DashboardScreen extends StatelessWidget {
                 subtitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppTheme.textMuted,
+                style: TextStyle(
+                  color: AppTheme.getSubtextColor(isDark),
                   fontSize: 11,
                 ),
               ),

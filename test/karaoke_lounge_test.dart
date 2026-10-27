@@ -87,6 +87,9 @@ void main() {
     });
 
     test('Joining Mic Queue costs 30 credits and enables stage takeover', () {
+      gameState.karaokeSingerName = null;
+      gameState.karaokeCurrentTrack = null;
+      gameState.karaokeMicQueue.clear();
       gameState.user.walletBalance = 100;
       final burnaBoyTrack = KaraokeTrack.curatedTracks[1]; // Last Last
 
@@ -94,9 +97,9 @@ void main() {
       expect(err, isNull);
       expect(gameState.user.walletBalance, equals(70)); // 100 - 30
 
-      // User immediately took the mic from the resident bot
+      // User immediately took the mic since stage was open
       expect(gameState.karaokeSingerName, contains(gameState.user.username));
-      expect(gameState.karaokeCurrentTrack.id, equals('burna_boy_last_last'));
+      expect(gameState.karaokeCurrentTrack?.id, equals('burna_boy_last_last'));
       expect(gameState.karaokeElapsedSeconds, equals(0));
 
       // Joining queue again queues the user
@@ -106,12 +109,27 @@ void main() {
       expect(gameState.karaokeMicQueue.first['trackId'], equals('rema_calm_down'));
     });
 
-    test('Rotating singer resets elapsed timer and pulls next singer or resident AI', () {
+    test('Rotating singer pulls next queued singer or keeps stage open if queue is empty', () {
+      gameState.karaokeMicQueue.clear();
+      // 1. When queue has a singer
+      gameState.karaokeMicQueue.add({
+        'name': 'Live Singer 🌟',
+        'avatar': '🎤',
+        'rank': 'Master',
+        'userId': 'user_123',
+        'trackId': 'burna_boy_last_last',
+      });
       gameState.karaokeElapsedSeconds = 25;
       gameState.rotateKaraokeSinger();
 
       expect(gameState.karaokeElapsedSeconds, equals(0));
-      expect(gameState.karaokeSingerName, isNotEmpty);
+      expect(gameState.karaokeSingerName, equals('Live Singer 🌟'));
+
+      // 2. When queue is empty, stage is 100% live & open (no fake bot loop)
+      gameState.rotateKaraokeSinger();
+      expect(gameState.karaokeSingerName, isNull);
+      expect(gameState.karaokeCurrentTrack, isNull);
+      expect(gameState.karaokeIsPlaying, isFalse);
     });
   });
 }

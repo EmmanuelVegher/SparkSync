@@ -182,7 +182,7 @@ class _CoopTriviaSheetState extends State<CoopTriviaSheet> {
                 decoration: BoxDecoration(
                   color: AppTheme.nightObsidian,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppTheme.neonEmerald.withOpacity(0.4)),
+                  border: Border.all(color: AppTheme.neonEmerald.withValues(alpha: 0.4)),
                 ),
                 child: Column(
                   children: [

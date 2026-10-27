@@ -49,5 +49,9 @@
 	<string>SparkSync needs your location to connect you with nearby chat rooms and local singles.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>SparkSync needs your location to connect you with nearby chat rooms and local singles.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>SparkSync needs your microphone so the room can hear you sing live in the Acapella Challenge and Karaoke Stage.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>SparkSync needs your camera for selfie verification and to show your live video in the Acapella Challenge.</string>
 </dict>
 </plist>

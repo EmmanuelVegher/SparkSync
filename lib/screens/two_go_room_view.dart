@@ -6,8 +6,12 @@ import '../services/local_persistence_service.dart';
 import '../services/sound_service.dart';
 import '../services/supabase_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/acapella_challenge_arena_modal.dart';
 import '../widgets/afrobeat_deck_widget.dart';
+import '../widgets/credit_top_up_sheet.dart';
 import '../widgets/money_rain_overlay.dart';
+import '../widgets/naija_banter_deck_widget.dart';
+import '../widgets/room_schedule_banner.dart';
 import '../widgets/two_go_profile_mini_card.dart';
 
 class TwoGoRoomView extends StatefulWidget {
@@ -41,13 +45,30 @@ class _TwoGoRoomViewState extends State<TwoGoRoomView> {
       }
     });
 
+    // Cleanse any stale simulated bot or phantom messages from memory & disk
+    bool isStale(TwoGoRoomMessage m) {
+      final t = m.text.toLowerCase();
+      return m.senderId == 'bot_host' ||
+          m.text.contains('NEXT SINGER:') ||
+          t.contains('sheesh') ||
+          t.contains('shouted');
+    }
+
+    final currentList = widget.gameState.twoGoRoomChats[widget.room.id];
+    if (currentList != null && currentList.isNotEmpty) {
+      currentList.removeWhere(isStale);
+      LocalPersistenceService().saveRoomMessages(widget.room.id, currentList);
+    }
+
     // Fallback: restore from local cache if memory list is currently empty (Option C: Rolling 25-message buffer)
     final currentUserId = SupabaseService().currentUser?.id ?? 'user_local';
     if ((widget.gameState.twoGoRoomChats[widget.room.id] ?? []).isEmpty) {
       LocalPersistenceService().restoreRoomMessages(widget.room.id, currentUserId).then((cached) {
         if (cached.isNotEmpty && mounted) {
-          final rolling = cached.length > 25 ? cached.sublist(cached.length - 25) : cached;
+          final clean = cached.where((m) => !isStale(m)).toList();
+          final rolling = clean.length > 25 ? clean.sublist(clean.length - 25) : clean;
           widget.gameState.twoGoRoomChats[widget.room.id] = rolling;
+          LocalPersistenceService().saveRoomMessages(widget.room.id, rolling);
           setState(() {});
         }
       });
@@ -111,6 +132,7 @@ class _TwoGoRoomViewState extends State<TwoGoRoomView> {
   void dispose() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.gameState.leaveTwoGoRoom(widget.room.id);
+      SoundService().stopKaraokeAudio();
     });
     _roomMsgSub?.cancel();
     _msgController.dispose();
@@ -247,6 +269,415 @@ class _TwoGoRoomViewState extends State<TwoGoRoomView> {
     );
   }
 
+  void _openAfrobeatStageModal() {
+    SoundService().playButtonTap();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF0F1522),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.85,
+          minChildSize: 0.50,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) {
+            return SingleChildScrollView(
+              controller: scrollController,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 8),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  AfrobeatDeckWidget(
+                    gameState: widget.gameState,
+                    roomId: widget.room.id,
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _openNaijaBanterModal() {
+    SoundService().playButtonTap();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF0F1522),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.82,
+          minChildSize: 0.45,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) {
+            return SingleChildScrollView(
+              controller: scrollController,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 8),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  NaijaBanterDeckWidget(
+                    gameState: widget.gameState,
+                    roomId: widget.room.id,
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _openRoomActionMenu() {
+    SoundService().playButtonTap();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF141A28),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        final isAfrobeat = widget.room.id == 'room_afrobeat_vibes';
+        final isBanter = widget.room.id == 'room_naija_banter';
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 38,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${widget.room.name} Features',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                    Text(
+                      '🪙 ${widget.gameState.user.walletBalance} Cr',
+                      style: const TextStyle(
+                        color: AppTheme.lagosYellow,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Tap any feature to interact with the room',
+                  style: TextStyle(color: AppTheme.textMuted, fontSize: 11.5),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    if (isAfrobeat) ...[
+                      _buildActionItem(
+                        icon: '🎤',
+                        title: 'Live Stage',
+                        subtitle: 'Sing on Mic & Lyrics',
+                        color: AppTheme.lagosYellow,
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _openAfrobeatStageModal();
+                        },
+                      ),
+                      _buildActionItem(
+                        icon: '🎧',
+                        title: 'DJ Decks',
+                        subtitle: 'Beats, Hype & Boo',
+                        color: AppTheme.skyCyan,
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _openAfrobeatStageModal();
+                        },
+                      ),
+                    ],
+                    if (isBanter) ...[
+                      _buildActionItem(
+                        icon: '⚽',
+                        title: 'Match Predictions',
+                        subtitle: 'Stake 10 🪙 Pool',
+                        color: AppTheme.lagosYellow,
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _openNaijaBanterModal();
+                        },
+                      ),
+                      _buildActionItem(
+                        icon: '📢',
+                        title: 'Banter Sound FX',
+                        subtitle: 'Whistle, Vuvuzela',
+                        color: AppTheme.neonEmerald,
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _openNaijaBanterModal();
+                        },
+                      ),
+                    ],
+                    _buildActionItem(
+                      icon: '💸',
+                      title: 'Spray Naira',
+                      subtitle: '50 🪙 (+100 XP)',
+                      color: AppTheme.neonEmerald,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        final err = widget.gameState.sprayNairaOnSinger();
+                        if (err != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(backgroundColor: Colors.redAccent, content: Text(err)),
+                          );
+                        }
+                      },
+                    ),
+                    _buildActionItem(
+                      icon: '🥂',
+                      title: 'Round of Drinks',
+                      subtitle: '50 🪙 (+150 XP)',
+                      color: AppTheme.electricPink,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        final ok = widget.gameState.buyRoundOfDrinks(widget.room.id);
+                        if (ok) {
+                          SoundService().playCoinEarned();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              backgroundColor: AppTheme.neonEmerald,
+                              content: Text('🍾 Bought a round of drinks for the entire room!'),
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              backgroundColor: Colors.redAccent,
+                              content: Text('Need at least 50 Credits to buy a round!'),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                    _buildActionItem(
+                      icon: '📅',
+                      title: 'Weekly Schedule',
+                      subtitle: 'Events & Challenges',
+                      color: AppTheme.skyCyan,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        RoomScheduleBanner.showScheduleModal(context, widget.gameState);
+                      },
+                    ),
+                    _buildActionItem(
+                      icon: '🏆',
+                      title: 'Acapella Arena',
+                      subtitle: 'Saturday Challenge',
+                      color: Colors.amberAccent,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        AcapellaChallengeArenaModal.launch(context, widget.gameState, roomId: widget.room.id);
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildActionItem({
+    required String icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 160,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E2638),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            Text(icon, style: const TextStyle(fontSize: 22)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(color: color, fontSize: 10),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLiveAudioMiniBar() {
+    final track = widget.gameState.karaokeCurrentTrack;
+    if (track == null || !widget.gameState.karaokeIsPlaying) {
+      return const SizedBox.shrink();
+    }
+    final singer = widget.gameState.karaokeSingerName ?? 'Live Singer';
+    final isMuted = SoundService().isKaraokeMuted;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(10, 4, 10, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF161F30),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.lagosYellow.withValues(alpha: 0.35)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              color: AppTheme.lagosYellow.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Text('🎤', style: TextStyle(fontSize: 14)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  track.title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  '$singer • 👏 ${widget.gameState.karaokeClapCount} claps',
+                  style: const TextStyle(
+                    color: AppTheme.textMuted,
+                    fontSize: 10,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          // Quick Clap button
+          InkWell(
+            onTap: () => widget.gameState.clapForKaraokeSinger(),
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white10,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Text('👏 Clap', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+            ),
+          ),
+          const SizedBox(width: 4),
+          // Mute / Unmute
+          IconButton(
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            icon: Icon(
+              isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+              color: isMuted ? Colors.white38 : AppTheme.lagosYellow,
+              size: 18,
+            ),
+            onPressed: () async {
+              await SoundService().toggleKaraokeMute();
+              setState(() {});
+            },
+          ),
+          // Expand stage button
+          IconButton(
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            icon: const Icon(Icons.open_in_full_rounded, color: AppTheme.skyCyan, size: 16),
+            onPressed: _openAfrobeatStageModal,
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -255,10 +686,10 @@ class _TwoGoRoomViewState extends State<TwoGoRoomView> {
         final messages = widget.gameState.twoGoRoomChats[widget.room.id] ?? [];
 
         return Scaffold(
-          backgroundColor: const Color(0xFF0C101A),
+          backgroundColor: const Color(0xFF000000), // Apple OLED pure black
           appBar: AppBar(
-            backgroundColor: const Color(0xFF141A28),
-            elevation: 1,
+            backgroundColor: const Color(0xFF121214), // Apple iOS bar
+            elevation: 0,
             titleSpacing: 0,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
@@ -295,15 +726,12 @@ class _TwoGoRoomViewState extends State<TwoGoRoomView> {
                                 ),
                               ),
                               const SizedBox(width: 4),
-                              Flexible(
-                                child: Text(
-                                  '${liveRoom.activeOnline} Online • ⚡ 25 Buffer',
-                                  style: TextStyle(
-                                    color: isOnline ? AppTheme.neonEmerald : AppTheme.textMuted,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
+                              Text(
+                                '${liveRoom.activeOnline} active',
+                                style: TextStyle(
+                                  color: isOnline ? AppTheme.neonEmerald : AppTheme.textMuted,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ],
@@ -316,45 +744,76 @@ class _TwoGoRoomViewState extends State<TwoGoRoomView> {
               ],
             ),
             actions: [
-              // Buy Round of Drinks button (Compact sizing to prevent overflow)
+              if (widget.room.id == 'room_afrobeat_vibes') ...[
+                Padding(
+                  padding: const EdgeInsets.only(right: 6.0),
+                  child: TextButton.icon(
+                    style: TextButton.styleFrom(
+                      backgroundColor: AppTheme.lagosYellow.withValues(alpha: 0.16),
+                      foregroundColor: AppTheme.lagosYellow,
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    icon: const Text('🎤', style: TextStyle(fontSize: 12)),
+                    label: const Text(
+                      'Stage & DJ',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                    ),
+                    onPressed: _openAfrobeatStageModal,
+                  ),
+                ),
+              ] else if (widget.room.id == 'room_naija_banter') ...[
+                Padding(
+                  padding: const EdgeInsets.only(right: 6.0),
+                  child: TextButton.icon(
+                    style: TextButton.styleFrom(
+                      backgroundColor: AppTheme.neonEmerald.withValues(alpha: 0.16),
+                      foregroundColor: AppTheme.neonEmerald,
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    icon: const Text('⚽', style: TextStyle(fontSize: 12)),
+                    label: const Text(
+                      'Matchday & FX',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                    ),
+                    onPressed: _openNaijaBanterModal,
+                  ),
+                ),
+              ],
+
+              // Wallet Credits Button
               Padding(
-                padding: const EdgeInsets.only(right: 6.0),
-                child: TextButton.icon(
-                  style: TextButton.styleFrom(
-                    backgroundColor: AppTheme.lagosYellow.withValues(alpha: 0.15),
-                    foregroundColor: AppTheme.lagosYellow,
+                padding: const EdgeInsets.only(right: 8.0),
+                child: InkWell(
+                  onTap: () => CreditTopUpSheet.show(context, widget.gameState),
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  icon: const Text('🥂', style: TextStyle(fontSize: 12)),
-                  label: const Text(
-                    'Round (50 Cr)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5),
-                  ),
-                  onPressed: () {
-                    final ok = widget.gameState.buyRoundOfDrinks(widget.room.id);
-                    if (ok) {
-                      SoundService().playCoinEarned();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          backgroundColor: AppTheme.neonEmerald,
-                          content: Text(
-                            '🍾 Bought a round of virtual drinks for everyone! +150 Clout XP!',
-                            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E283E),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppTheme.lagosYellow.withValues(alpha: 0.35)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('🪙 ', style: TextStyle(fontSize: 11)),
+                        Text(
+                          '${widget.gameState.user.walletBalance}',
+                          style: const TextStyle(
+                            color: AppTheme.lagosYellow,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11.5,
                           ),
                         ),
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          backgroundColor: Colors.redAccent,
-                          content: Text('Insufficient Credits! Need at least 50 🪙.'),
-                        ),
-                      );
-                    }
-                  },
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -380,36 +839,15 @@ class _TwoGoRoomViewState extends State<TwoGoRoomView> {
             children: [
               Column(
                 children: [
-              // Gamified Afrobeat Live DJ Deck & Interactive Beat Pad Overlay
-              if (widget.room.id == 'room_afrobeat_vibes')
-                AfrobeatDeckWidget(
-                  gameState: widget.gameState,
-                  roomId: widget.room.id,
-                ),
+                  // Live Audio Mini Bar (only shown when a song is actively singing/playing in Afrobeat room)
+                  if (widget.room.id == 'room_afrobeat_vibes')
+                    _buildLiveAudioMiniBar(),
 
-              // Option C: Rolling 25-Message Privacy Buffer Badge
-              Container(
-                margin: const EdgeInsets.only(top: 6, bottom: 2),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF141A28).withValues(alpha: 0.8),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white10),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.history_toggle_off_rounded, size: 12, color: AppTheme.textMuted),
-                    SizedBox(width: 4),
-                    Text(
-                      'Option C • Rolling 25-Message Buffer Active',
-                      style: TextStyle(color: AppTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-              ),
+                  // Room Schedule Banner (shows current mode and allows instant 1-tap inspection of the weekly schedule)
+                  if (widget.room.id == 'room_afrobeat_vibes')
+                    RoomScheduleBanner(gameState: widget.gameState),
 
-              // Room Entry Flare Banner
+                  // Room Entry Flare Banner
               if (_showEntryFlare)
                 Container(
                   width: double.infinity,
@@ -536,31 +974,37 @@ class _TwoGoRoomViewState extends State<TwoGoRoomView> {
                 );
               }),
 
-              // Input Bar
+              // Input Bar with Apple / WhatsApp minimal action button
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: const BoxDecoration(
-                  color: Color(0xFF141A28),
-                  border: Border(top: BorderSide(color: Color(0xFF222C42), width: 1)),
+                  color: Color(0xFF121214),
+                  border: Border(top: BorderSide(color: Color(0xFF242426), width: 0.5)),
                 ),
                 child: SafeArea(
                   child: Row(
                     children: [
+                      // Action Menu (+) button
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline_rounded, color: AppTheme.brandCoral, size: 24),
+                        tooltip: 'Room Features',
+                        onPressed: _openRoomActionMenu,
+                      ),
                       Expanded(
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0C101A),
-                            borderRadius: BorderRadius.circular(22),
-                            border: Border.all(color: const Color(0xFF222C42)),
+                            color: const Color(0xFF1C1C1E),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: const Color(0xFF2C2C2E), width: 0.5),
                           ),
                           child: TextField(
                             controller: _msgController,
                             style: const TextStyle(color: Colors.white, fontSize: 14),
                             textCapitalization: TextCapitalization.sentences,
                             decoration: const InputDecoration(
-                              hintText: 'Type into room... (+15 Clout XP)',
-                              hintStyle: TextStyle(color: AppTheme.textMuted, fontSize: 13),
+                              hintText: 'Message...',
+                              hintStyle: TextStyle(color: Color(0xFF86868B), fontSize: 13.5),
                               border: InputBorder.none,
                             ),
                             onSubmitted: (_) => _sendMessage(),
@@ -570,11 +1014,11 @@ class _TwoGoRoomViewState extends State<TwoGoRoomView> {
                       const SizedBox(width: 8),
                       Container(
                         decoration: const BoxDecoration(
-                          color: AppTheme.brandCoral,
+                          color: AppTheme.brandCoral, // Apple Signature Blue
                           shape: BoxShape.circle,
                         ),
                         child: IconButton(
-                          icon: const Icon(Icons.send_rounded, color: Colors.white, size: 19),
+                          icon: const Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 20),
                           onPressed: _sendMessage,
                         ),
                       ),
@@ -803,15 +1247,15 @@ class _TwoGoRoomViewState extends State<TwoGoRoomView> {
                   ),
                   const SizedBox(height: 4),
 
-                  // Message text bubble
+                  // Message text bubble (Apple iMessage style: Apple Blue for user, Space Gray for others)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8.5),
                     decoration: BoxDecoration(
-                      color: msg.isUser ? const Color(0xFF1E283C) : const Color(0xFF151C2A),
-                      borderRadius: BorderRadius.circular(10),
-                      border: msg.hasNeonGlow
-                          ? Border.all(color: Colors.cyanAccent.withValues(alpha: 0.4), width: 1)
-                          : null,
+                      color: msg.isUser ? const Color(0xFF0071E3) : const Color(0xFF1C1C1E),
+                      borderRadius: BorderRadius.circular(16),
+                      border: msg.isUser
+                          ? null
+                          : Border.all(color: const Color(0xFF2C2C2E), width: 0.5),
                     ),
                     child: Text(
                       msg.text,

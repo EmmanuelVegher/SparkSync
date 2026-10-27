@@ -74,6 +74,8 @@ class _TwoGoRoomsScreenState extends State<TwoGoRoomsScreen> {
           return 0;
         });
 
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+
         return Scaffold(
           backgroundColor: Colors.transparent,
           body: CustomScrollView(
@@ -91,10 +93,10 @@ class _TwoGoRoomsScreenState extends State<TwoGoRoomsScreen> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 'Chat Rooms',
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: AppTheme.getTextColor(isDark),
                                   fontSize: 20,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: -0.5,
@@ -104,7 +106,7 @@ class _TwoGoRoomsScreenState extends State<TwoGoRoomsScreen> {
                               Text(
                                 'Drop in, chat live, and vibe with locals',
                                 style: TextStyle(
-                                  color: AppTheme.textMuted,
+                                  color: AppTheme.getSubtextColor(isDark),
                                   fontSize: 12,
                                 ),
                               ),
@@ -136,7 +138,7 @@ class _TwoGoRoomsScreenState extends State<TwoGoRoomsScreen> {
                                     Text(
                                       hasOnline ? '$totalOnline Online' : '${rooms.length} Rooms',
                                       style: TextStyle(
-                                        color: hasOnline ? AppTheme.neonEmerald : Colors.white70,
+                                        color: hasOnline ? AppTheme.neonEmerald : (isDark ? Colors.white70 : AppTheme.textDark),
                                         fontWeight: FontWeight.bold,
                                         fontSize: 11,
                                       ),
@@ -162,15 +164,19 @@ class _TwoGoRoomsScreenState extends State<TwoGoRoomsScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: Row(
                     children: [
-                      _buildCategoryChip('all', 'All Rooms'),
+                      _buildCategoryChip(context, 'all', 'All Rooms'),
                       const SizedBox(width: 8),
-                      _buildCategoryChip('city', '📍 Local City'),
+                      _buildCategoryChip(
+                        context,
+                        'city',
+                        user.isTravelMode ? '✈️ Traveled City' : '📍 Local City',
+                      ),
                       const SizedBox(width: 8),
-                      _buildCategoryChip('vibe', '🎵 Vibes'),
+                      _buildCategoryChip(context, 'vibe', '🎵 Vibes'),
                       const SizedBox(width: 8),
-                      _buildCategoryChip('vip', '👑 VIP Rooms'),
+                      _buildCategoryChip(context, 'vip', '👑 VIP Rooms'),
                       const SizedBox(width: 8),
-                      _buildCategoryChip('other_cities', '✈️ Travel Mode'),
+                      _buildCategoryChip(context, 'other_cities', '🌍 Other Cities'),
                     ],
                   ),
                 ),
@@ -200,8 +206,24 @@ class _TwoGoRoomsScreenState extends State<TwoGoRoomsScreen> {
     );
   }
 
-  Widget _buildCategoryChip(String cat, String label) {
+  Widget _buildCategoryChip(BuildContext context, String cat, String label) {
     final isSelected = _selectedCategory == cat;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    Color bg;
+    Color border;
+    Color text;
+
+    if (isDark) {
+      bg = isSelected ? const Color(0xFFF5F5F7) : const Color(0xFF1C1C1E);
+      border = isSelected ? const Color(0xFFF5F5F7) : const Color(0xFF2C2C2E);
+      text = isSelected ? Colors.black : const Color(0xFF86868B);
+    } else {
+      bg = isSelected ? const Color(0xFF1D1D1F) : Colors.white;
+      border = isSelected ? const Color(0xFF1D1D1F) : const Color(0xFFE5E5EA);
+      text = isSelected ? Colors.white : const Color(0xFF6E6E73);
+    }
+
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -209,21 +231,27 @@ class _TwoGoRoomsScreenState extends State<TwoGoRoomsScreen> {
         });
       },
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6.5),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.brandCoral : const Color(0xFF141926),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? AppTheme.brandCoral : const Color(0xFF222C42),
-          ),
+          color: bg,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: border, width: 0.5),
+          boxShadow: isDark || isSelected ? null : const [
+            BoxShadow(
+              color: Color(0x08000000),
+              blurRadius: 4,
+              offset: Offset(0, 1),
+            ),
+          ],
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.white : AppTheme.textMuted,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+            color: text,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
             fontSize: 12,
+            letterSpacing: -0.2,
           ),
         ),
       ),
@@ -236,27 +264,33 @@ class _TwoGoRoomsScreenState extends State<TwoGoRoomsScreen> {
     final isVip = room.category == 'vip';
     final userCity = LocationService().currentCity.toLowerCase();
     final userHood = user.neighborhood.toLowerCase();
+    final userState = user.stateName.toLowerCase();
+    final userLga = user.lgaName.toLowerCase();
     final isLocalCity = room.city != null && (
       room.city!.toLowerCase() == userCity || 
       userHood.contains(room.city!.toLowerCase()) ||
+      userState.contains(room.city!.toLowerCase()) ||
+      userLga.contains(room.city!.toLowerCase()) ||
       (userCity == 'abuja' && room.city!.toLowerCase() == 'minna') ||
       (userCity == 'minna' && room.city!.toLowerCase() == 'abuja')
     );
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: isVip ? const Color(0xFF1D162B) : const Color(0xFF131926),
-        borderRadius: BorderRadius.circular(16),
+        color: AppTheme.getCardSurface(isDark),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isLocalCity
-              ? Colors.cyanAccent.withValues(alpha: 0.5)
-              : (isVip ? AppTheme.lagosYellow.withValues(alpha: 0.4) : const Color(0xFF222C42)),
-          width: isLocalCity || isVip ? 1.5 : 1,
+              ? AppTheme.brandCoral.withValues(alpha: isDark ? 0.6 : 0.8)
+              : AppTheme.getCardBorder(isDark),
+          width: isLocalCity ? 1 : 0.5,
         ),
+        boxShadow: AppTheme.getCardShadow(isDark),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         onTap: () {
           if (!canEnter) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -297,8 +331,8 @@ class _TwoGoRoomsScreenState extends State<TwoGoRoomsScreen> {
                           : room.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AppTheme.getTextColor(isDark),
                         fontWeight: FontWeight.bold,
                         fontSize: 14.5,
                       ),
@@ -309,7 +343,7 @@ class _TwoGoRoomsScreenState extends State<TwoGoRoomsScreen> {
                       margin: const EdgeInsets.only(left: 6),
                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                       decoration: BoxDecoration(
-                        color: AppTheme.lagosYellow.withValues(alpha: 0.15),
+                        color: AppTheme.lagosYellow.withValues(alpha: isDark ? 0.15 : 0.12),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: AppTheme.lagosYellow.withValues(alpha: 0.4), width: 1),
                       ),
@@ -337,14 +371,19 @@ class _TwoGoRoomsScreenState extends State<TwoGoRoomsScreen> {
                         return Container(
                           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                           decoration: BoxDecoration(
-                            color: Colors.cyanAccent.withValues(alpha: 0.15),
+                            color: Colors.cyanAccent.withValues(alpha: isDark ? 0.15 : 0.12),
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.4), width: 1),
+                            border: Border.all(
+                              color: isDark ? Colors.cyanAccent.withValues(alpha: 0.4) : const Color(0xFF0071E3).withValues(alpha: 0.4),
+                              width: 1,
+                            ),
                           ),
                           child: Text(
-                            isDirect ? '📍 Your City' : '📍 Local Region',
-                            style: const TextStyle(
-                              color: Colors.cyanAccent,
+                            user.isTravelMode
+                                ? (isDirect ? '✈️ Traveled City' : '✈️ Traveled Region')
+                                : (isDirect ? '📍 Your City' : '📍 Local Region'),
+                            style: TextStyle(
+                              color: isDark ? Colors.cyanAccent : const Color(0xFF0071E3),
                               fontSize: 9.5,
                               fontWeight: FontWeight.bold,
                             ),
@@ -359,7 +398,7 @@ class _TwoGoRoomsScreenState extends State<TwoGoRoomsScreen> {
                     decoration: BoxDecoration(
                       color: room.activeOnline > 0
                           ? AppTheme.neonEmerald.withValues(alpha: 0.15)
-                          : AppTheme.textMuted.withValues(alpha: 0.12),
+                          : (isDark ? AppTheme.textMuted.withValues(alpha: 0.12) : const Color(0xFFE5E5EA)),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
@@ -369,7 +408,9 @@ class _TwoGoRoomsScreenState extends State<TwoGoRoomsScreen> {
                           width: 5,
                           height: 5,
                           decoration: BoxDecoration(
-                            color: room.activeOnline > 0 ? AppTheme.neonEmerald : AppTheme.textMuted,
+                            color: room.activeOnline > 0
+                                ? AppTheme.neonEmerald
+                                : (isDark ? AppTheme.textMuted : const Color(0xFF8E8E93)),
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -377,7 +418,9 @@ class _TwoGoRoomsScreenState extends State<TwoGoRoomsScreen> {
                         Text(
                           '${room.activeOnline} Online',
                           style: TextStyle(
-                            color: room.activeOnline > 0 ? AppTheme.neonEmerald : AppTheme.textMuted,
+                            color: room.activeOnline > 0
+                                ? AppTheme.neonEmerald
+                                : (isDark ? AppTheme.textMuted : const Color(0xFF6E6E73)),
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                           ),
@@ -390,7 +433,10 @@ class _TwoGoRoomsScreenState extends State<TwoGoRoomsScreen> {
               const SizedBox(height: 6),
               Text(
                 room.description,
-                style: const TextStyle(color: AppTheme.textMuted, fontSize: 11),
+                style: TextStyle(
+                  color: AppTheme.getSubtextColor(isDark),
+                  fontSize: 11,
+                ),
               ),
               const SizedBox(height: 8),
 
@@ -399,7 +445,7 @@ class _TwoGoRoomsScreenState extends State<TwoGoRoomsScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.black26,
+                  color: isDark ? Colors.black26 : const Color(0xFFF2F2F7),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -408,8 +454,8 @@ class _TwoGoRoomsScreenState extends State<TwoGoRoomsScreen> {
                     Expanded(
                       child: Text(
                         room.latestMessage,
-                        style: const TextStyle(
-                          color: Colors.white70,
+                        style: TextStyle(
+                          color: isDark ? Colors.white70 : const Color(0xFF48484A),
                           fontSize: 11,
                           fontStyle: FontStyle.italic,
                         ),
@@ -433,6 +479,7 @@ class _TwoGoRoomsScreenState extends State<TwoGoRoomsScreen> {
     final progress = currentRank.progressToNext(user.xp);
     final rankColor = AppTheme.getRankColor(currentRank.rankName);
     final percentage = (progress * 100).toInt();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return InkWell(
       onTap: () {
@@ -447,12 +494,13 @@ class _TwoGoRoomsScreenState extends State<TwoGoRoomsScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: AppTheme.cardSurface.withValues(alpha: 0.65),
+          color: isDark ? AppTheme.cardSurface.withValues(alpha: 0.65) : Colors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: rankColor.withValues(alpha: 0.28),
+            color: rankColor.withValues(alpha: isDark ? 0.28 : 0.45),
             width: 1,
           ),
+          boxShadow: AppTheme.getCardShadow(isDark),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -481,7 +529,9 @@ class _TwoGoRoomsScreenState extends State<TwoGoRoomsScreen> {
                   Text(
                     nextRank.badgeTitle,
                     style: TextStyle(
-                      color: AppTheme.textMuted.withValues(alpha: 0.8),
+                      color: isDark
+                          ? AppTheme.textMuted.withValues(alpha: 0.8)
+                          : const Color(0xFF6E6E73),
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
                     ),
@@ -491,7 +541,9 @@ class _TwoGoRoomsScreenState extends State<TwoGoRoomsScreen> {
                 Text(
                   nextRank != null ? '$percentage% • ${user.xp} XP' : 'MAX 🌌',
                   style: TextStyle(
-                    color: nextRank != null ? Colors.white.withValues(alpha: 0.85) : rankColor,
+                    color: nextRank != null
+                        ? (isDark ? Colors.white.withValues(alpha: 0.85) : AppTheme.textDark)
+                        : rankColor,
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
                   ),
@@ -500,7 +552,9 @@ class _TwoGoRoomsScreenState extends State<TwoGoRoomsScreen> {
                 Icon(
                   Icons.chevron_right_rounded,
                   size: 14,
-                  color: AppTheme.textMuted.withValues(alpha: 0.6),
+                  color: isDark
+                      ? AppTheme.textMuted.withValues(alpha: 0.6)
+                      : const Color(0xFF8E8E93),
                 ),
               ],
             ),
@@ -513,7 +567,7 @@ class _TwoGoRoomsScreenState extends State<TwoGoRoomsScreen> {
                   Container(
                     height: 3.5,
                     width: double.infinity,
-                    color: Colors.white12,
+                    color: isDark ? Colors.white12 : const Color(0xFFE5E5EA),
                   ),
                   FractionallySizedBox(
                     widthFactor: progress.clamp(0.02, 1.0),

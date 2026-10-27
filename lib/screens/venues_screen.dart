@@ -28,16 +28,22 @@ class _VenuesScreenState extends State<VenuesScreen> {
       return _buildVenueRoom(selectedVenue!);
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           children: [
-            Text('🥂', style: TextStyle(fontSize: 22)),
-            SizedBox(width: 8),
+            const Text('🥂', style: TextStyle(fontSize: 22)),
+            const SizedBox(width: 8),
             Text(
               'Lagos Dating Hotspots',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: AppTheme.getTextColor(isDark),
+              ),
             ),
           ],
         ),
@@ -58,9 +64,10 @@ class _VenuesScreenState extends State<VenuesScreen> {
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppTheme.cardSurface,
+                color: AppTheme.getCardSurface(isDark),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppTheme.cardBorder),
+                border: Border.all(color: AppTheme.getCardBorder(isDark), width: 0.5),
+                boxShadow: AppTheme.getCardShadow(isDark),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -71,7 +78,7 @@ class _VenuesScreenState extends State<VenuesScreen> {
                         width: 50,
                         height: 50,
                         decoration: BoxDecoration(
-                          color: AppTheme.nightObsidian,
+                          color: AppTheme.getSecondarySurface(isDark),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Center(
@@ -85,18 +92,18 @@ class _VenuesScreenState extends State<VenuesScreen> {
                           children: [
                             Text(
                               venue.name,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                                color: AppTheme.getTextColor(isDark),
                               ),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               '${venue.category} • ${venue.area}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
-                                color: AppTheme.textMuted,
+                                color: AppTheme.getSubtextColor(isDark),
                               ),
                             ),
                           ],
@@ -105,7 +112,7 @@ class _VenuesScreenState extends State<VenuesScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppTheme.brandCoral.withOpacity(0.18),
+                          color: AppTheme.brandCoral.withValues(alpha: 0.18),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Row(
@@ -129,7 +136,10 @@ class _VenuesScreenState extends State<VenuesScreen> {
                   const SizedBox(height: 12),
                   Text(
                     venue.description,
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textLight),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? AppTheme.textLight : AppTheme.textDark,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Row(
@@ -138,7 +148,7 @@ class _VenuesScreenState extends State<VenuesScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: AppTheme.lagosYellow.withOpacity(0.15),
+                            color: AppTheme.lagosYellow.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -294,12 +304,12 @@ class _VenuesScreenState extends State<VenuesScreen> {
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
                                 color: msg.isUser
-                                    ? AppTheme.brandCoral.withOpacity(0.18)
+                                    ? AppTheme.brandCoral.withValues(alpha: 0.18)
                                     : AppTheme.cardSurface,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color: msg.isUser
-                                      ? AppTheme.brandCoral.withOpacity(0.3)
+                                      ? AppTheme.brandCoral.withValues(alpha: 0.3)
                                       : AppTheme.cardBorder,
                                 ),
                               ),

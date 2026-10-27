@@ -3,6 +3,7 @@ import '../models/models.dart';
 import '../services/game_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/coop_trivia_sheet.dart';
+import '../widgets/credit_top_up_sheet.dart';
 import '../widgets/gift_selection_sheet.dart';
 import '../widgets/photo_vault_reveal_card.dart';
 
@@ -50,9 +51,14 @@ class _MatchesScreenState extends State<MatchesScreen> {
                     _openPhotoVaultModal(match);
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
+                      SnackBar(
                         backgroundColor: Colors.redAccent,
-                        content: Text('Not enough coins! Unlocking costs 100 Coins.'),
+                        content: const Text('Not enough coins! Unlocking costs 100 Coins.'),
+                        action: SnackBarAction(
+                          label: 'TOP UP ⚡',
+                          textColor: AppTheme.lagosYellow,
+                          onPressed: () => CreditTopUpSheet.show(context, widget.gameState),
+                        ),
                       ),
                     );
                   }
@@ -234,28 +240,29 @@ class _MatchesScreenState extends State<MatchesScreen> {
     }
 
     final matches = widget.gameState.matches;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (matches.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(32.0),
+          padding: const EdgeInsets.all(32.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('💌', style: TextStyle(fontSize: 48)),
-              SizedBox(height: 16),
+              const Text('💌', style: TextStyle(fontSize: 48)),
+              const SizedBox(height: 16),
               Text(
                 'No Sparks Yet!',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: AppTheme.getTextColor(isDark),
                 ),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text(
                 'Head over to the SparkDeck to discover Lagos singles, or check in at a live venue to mingle!',
-                style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
+                style: TextStyle(fontSize: 13, color: AppTheme.getSubtextColor(isDark)),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -294,29 +301,28 @@ class _MatchesScreenState extends State<MatchesScreen> {
                 activeChatMatch = match;
               });
             },
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(14),
             child: Container(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppTheme.cardSurface,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: AppTheme.cardBorder),
+                color: AppTheme.getCardSurface(isDark),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppTheme.getCardBorder(isDark), width: 0.5),
+                boxShadow: AppTheme.getCardShadow(isDark),
               ),
               child: Row(
                 children: [
                   Stack(
                     children: [
                       Container(
-                        width: 52,
-                        height: 52,
+                        width: 50,
+                        height: 50,
                         decoration: BoxDecoration(
-                          color: AppTheme.nightObsidian,
+                          color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF2F2F7),
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: match.relationshipStage == RelationshipStage.owambeOfficial
-                                ? AppTheme.lagosYellow
-                                : AppTheme.brandCoral,
-                            width: 2,
+                            color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFE5E5EA),
+                            width: 1,
                           ),
                         ),
                         child: Center(
@@ -347,10 +353,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
                             Flexible(
                               child: Text(
                                 match.name,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 15,
-                                  color: Colors.white,
+                                  color: AppTheme.getTextColor(isDark),
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -359,7 +365,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: AppTheme.brandCoral.withValues(alpha: 0.18),
+                                color: AppTheme.brandCoral.withValues(alpha: isDark ? 0.18 : 0.12),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
@@ -376,23 +382,24 @@ class _MatchesScreenState extends State<MatchesScreen> {
                         const SizedBox(height: 3),
                         Text(
                           lastMessage,
-                          style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                          style: TextStyle(fontSize: 12, color: AppTheme.getSubtextColor(isDark)),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
-                        Row(
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Text(
                               '🎁 ${match.totalGiftsExchanged} Gifts',
                               style: const TextStyle(fontSize: 10, color: AppTheme.lagosYellow),
                             ),
-                            const SizedBox(width: 8),
                             Text(
                               '${match.syncScore}% Chemistry',
                               style: const TextStyle(fontSize: 10, color: AppTheme.neonEmerald),
                             ),
-                            const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                               decoration: BoxDecoration(
@@ -432,7 +439,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right, color: AppTheme.textMuted),
+                  Icon(Icons.chevron_right, color: AppTheme.getSubtextColor(isDark)),
                 ],
               ),
             ),
@@ -443,11 +450,14 @@ class _MatchesScreenState extends State<MatchesScreen> {
   }
 
   Widget _buildChatView(MatchProfile match) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
+        titleSpacing: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back, color: AppTheme.getTextColor(isDark)),
           onPressed: () {
             setState(() {
               activeChatMatch = null;
@@ -458,14 +468,14 @@ class _MatchesScreenState extends State<MatchesScreen> {
           onTap: () => _openPhotoVaultModal(match),
           borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4.0),
+            padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 4.0),
             child: Row(
               children: [
                 Stack(
                   children: [
                     CircleAvatar(
                       radius: 18,
-                      backgroundColor: AppTheme.darkShimmer,
+                      backgroundColor: AppTheme.getSecondarySurface(isDark),
                       child: Text(match.avatarEmoji, style: const TextStyle(fontSize: 20)),
                     ),
                     Positioned(
@@ -473,8 +483,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                       right: 0,
                       child: Container(
                         padding: const EdgeInsets.all(2),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF16162A),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF16162A) : Colors.white,
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -486,31 +496,40 @@ class _MatchesScreenState extends State<MatchesScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Flexible(
                             child: Text(
                               match.name,
-                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.getTextColor(isDark),
+                              ),
                               overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
                             ),
                           ),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.arrow_drop_down, color: AppTheme.textMuted, size: 16),
+                          const SizedBox(width: 2),
+                          Icon(Icons.arrow_drop_down, color: AppTheme.getSubtextColor(isDark), size: 16),
                         ],
                       ),
                       Text(
                         '${match.relationshipStage.displayName} • ${match.isVaultUnlocked ? "Vault Open 🔓" : "Vault Locked 🔒"}',
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 9.5,
                           color: match.isVaultUnlocked ? AppTheme.neonEmerald : AppTheme.brandCoral,
                           fontWeight: FontWeight.w600,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -521,7 +540,9 @@ class _MatchesScreenState extends State<MatchesScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Text('🎯', style: TextStyle(fontSize: 20)),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            icon: const Text('🎯', style: TextStyle(fontSize: 18)),
             tooltip: 'Play Lagos Sync Quiz',
             onPressed: () {
               showModalBottomSheet(
@@ -536,7 +557,9 @@ class _MatchesScreenState extends State<MatchesScreen> {
             },
           ),
           IconButton(
-            icon: const Text('🎁', style: TextStyle(fontSize: 20)),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            icon: const Text('🎁', style: TextStyle(fontSize: 18)),
             tooltip: 'Send Romantic Gift',
             onPressed: () {
               showModalBottomSheet(
@@ -550,8 +573,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
             },
           ),
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
-            color: const Color(0xFF1E2638),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            icon: Icon(Icons.more_vert, color: AppTheme.getTextColor(isDark), size: 20),
+            color: isDark ? const Color(0xFF1E2638) : Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             onSelected: (val) {
               if (val == 'vault') {
@@ -575,18 +600,18 @@ class _MatchesScreenState extends State<MatchesScreen> {
                     const SizedBox(width: 10),
                     Text(
                       match.isVaultUnlocked ? 'View Photo Vault (🔓)' : 'Inspect Vault (🔒)',
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      style: TextStyle(color: AppTheme.getTextColor(isDark), fontSize: 13),
                     ),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'unmatch',
                 child: Row(
                   children: [
-                    Icon(Icons.link_off_rounded, color: AppTheme.brandCoral, size: 18),
-                    SizedBox(width: 10),
-                    Text('Sever Connection', style: TextStyle(color: Colors.white, fontSize: 13)),
+                    const Icon(Icons.link_off_rounded, color: AppTheme.brandCoral, size: 18),
+                    const SizedBox(width: 10),
+                    Text('Sever Connection', style: TextStyle(color: AppTheme.getTextColor(isDark), fontSize: 13)),
                   ],
                 ),
               ),
@@ -608,24 +633,34 @@ class _MatchesScreenState extends State<MatchesScreen> {
         children: [
           // Relationship Stage Progress Banner
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: const BoxDecoration(
-              color: AppTheme.cardSurface,
-              border: Border(bottom: BorderSide(color: AppTheme.cardBorder)),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppTheme.getCardSurface(isDark),
+              border: Border(bottom: BorderSide(color: AppTheme.getCardBorder(isDark), width: 0.5)),
             ),
             child: Row(
               children: [
-                const Text('🔒 Couple Status: ', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
-                Text(
-                  match.relationshipStage.displayName,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.brandCoral,
+                const Text('🔒 ', style: TextStyle(fontSize: 12)),
+                Text('Status: ', style: TextStyle(fontSize: 12, color: AppTheme.getSubtextColor(isDark))),
+                Expanded(
+                  child: Text(
+                    match.relationshipStage.displayName,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.brandCoral,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 6),
                 TextButton(
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
                   onPressed: () {
                     showModalBottomSheet(
                       context: context,
@@ -637,7 +672,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                     );
                   },
                   child: const Text(
-                    '+ Upgrade Status',
+                    '+ Upgrade',
                     style: TextStyle(
                       fontSize: 11,
                       color: AppTheme.lagosYellow,
@@ -659,12 +694,12 @@ class _MatchesScreenState extends State<MatchesScreen> {
                 gradient: LinearGradient(
                   colors: match.isVaultUnlocked
                       ? [
-                          AppTheme.neonEmerald.withValues(alpha: 0.25),
-                          const Color(0xFF142426),
+                          AppTheme.neonEmerald.withValues(alpha: isDark ? 0.25 : 0.15),
+                          isDark ? const Color(0xFF142426) : Colors.white,
                         ]
                       : [
-                          Colors.orangeAccent.withValues(alpha: 0.18),
-                          const Color(0xFF261914),
+                          Colors.orangeAccent.withValues(alpha: isDark ? 0.18 : 0.12),
+                          isDark ? const Color(0xFF261914) : Colors.white,
                         ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -676,6 +711,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                       : Colors.orangeAccent.withValues(alpha: 0.5),
                   width: 1.2,
                 ),
+                boxShadow: AppTheme.getCardShadow(isDark),
               ),
               child: Row(
                 children: [
@@ -703,12 +739,12 @@ class _MatchesScreenState extends State<MatchesScreen> {
                           match.isVaultUnlocked
                               ? 'Real verified face revealed! Tap to view gallery.'
                               : 'Unlocks at Tier 3 (Good Vibe 🍃) or with Reveal Ticket.',
-                          style: const TextStyle(color: AppTheme.textMuted, fontSize: 10),
+                          style: TextStyle(color: AppTheme.getSubtextColor(isDark), fontSize: 10),
                         ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 12),
+                  Icon(Icons.arrow_forward_ios_rounded, color: AppTheme.getSubtextColor(isDark), size: 12),
                 ],
               ),
             ),
@@ -731,8 +767,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
                         margin: const EdgeInsets.symmetric(vertical: 14),
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF0C241E), Color(0xFF131D26)],
+                          gradient: LinearGradient(
+                            colors: isDark
+                                ? const [Color(0xFF0C241E), Color(0xFF131D26)]
+                                : const [Color(0xFFE8F5E9), Colors.white],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
@@ -740,7 +778,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                           border: Border.all(color: AppTheme.neonEmerald, width: 1.5),
                           boxShadow: [
                             BoxShadow(
-                              color: AppTheme.neonEmerald.withValues(alpha: 0.35),
+                              color: AppTheme.neonEmerald.withValues(alpha: isDark ? 0.35 : 0.2),
                               blurRadius: 14,
                               spreadRadius: 1,
                             ),
@@ -769,8 +807,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                             Text(
                               msg.text,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: AppTheme.getTextColor(isDark),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                                 height: 1.35,
@@ -808,14 +846,17 @@ class _MatchesScreenState extends State<MatchesScreen> {
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      color: isUser ? AppTheme.brandCoral : AppTheme.cardSurface,
+                      color: isUser ? AppTheme.brandCoral : AppTheme.getCardSurface(isDark),
                       borderRadius: BorderRadius.only(
                         topLeft: const Radius.circular(16),
                         topRight: const Radius.circular(16),
                         bottomLeft: isUser ? const Radius.circular(16) : Radius.zero,
                         bottomRight: isUser ? Radius.zero : const Radius.circular(16),
                       ),
-                      border: isUser ? null : Border.all(color: AppTheme.cardBorder),
+                      border: isUser
+                          ? null
+                          : Border.all(color: AppTheme.getCardBorder(isDark), width: 0.5),
+                      boxShadow: isUser ? null : AppTheme.getCardShadow(isDark),
                     ),
                     child: Column(
                       crossAxisAlignment:
@@ -850,7 +891,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                           msg.text,
                           style: TextStyle(
                             fontSize: 13,
-                            color: isUser ? Colors.white : AppTheme.textLight,
+                            color: isUser ? Colors.white : AppTheme.getTextColor(isDark),
                           ),
                         ),
                         const SizedBox(height: 3),
@@ -858,7 +899,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                           '${msg.timestamp.hour}:${msg.timestamp.minute.toString().padLeft(2, '0')}',
                           style: TextStyle(
                             fontSize: 9,
-                            color: isUser ? Colors.white70 : AppTheme.textMuted,
+                            color: isUser ? Colors.white70 : AppTheme.getSubtextColor(isDark),
                           ),
                         ),
                       ],
@@ -872,9 +913,9 @@ class _MatchesScreenState extends State<MatchesScreen> {
           // Input Bar with Icebreaker helpers
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: const BoxDecoration(
-              color: AppTheme.cardSurface,
-              border: Border(top: BorderSide(color: AppTheme.cardBorder)),
+            decoration: BoxDecoration(
+              color: AppTheme.getCardSurface(isDark),
+              border: Border(top: BorderSide(color: AppTheme.getCardBorder(isDark), width: 0.5)),
             ),
             child: SafeArea(
               child: Column(
@@ -884,9 +925,9 @@ class _MatchesScreenState extends State<MatchesScreen> {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        _icebreakerChip('Are you a 33KV industrial line? Because our spark is real ⚡'),
-                        _icebreakerChip('Amala at Shitta or Suya in Ikoyi this Friday? 🥩'),
-                        _icebreakerChip('Did you survive that Third Mainland Bridge traffic? 🚐'),
+                        _icebreakerChip('Are you a 33KV industrial line? Because our spark is real ⚡', isDark),
+                        _icebreakerChip('Amala at Shitta or Suya in Ikoyi this Friday? 🥩', isDark),
+                        _icebreakerChip('Did you survive that Third Mainland Bridge traffic? 🚐', isDark),
                       ],
                     ),
                   ),
@@ -896,12 +937,12 @@ class _MatchesScreenState extends State<MatchesScreen> {
                       Expanded(
                         child: TextField(
                           controller: _msgController,
-                          style: const TextStyle(fontSize: 14, color: Colors.white),
+                          style: TextStyle(fontSize: 14, color: AppTheme.getTextColor(isDark)),
                           decoration: InputDecoration(
                             hintText: 'Message ${match.name}...',
-                            hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
+                            hintStyle: TextStyle(color: AppTheme.getSubtextColor(isDark), fontSize: 13),
                             filled: true,
-                            fillColor: AppTheme.nightObsidian,
+                            fillColor: isDark ? AppTheme.nightObsidian : const Color(0xFFF2F2F7),
                             contentPadding:
                                 const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                             border: OutlineInputBorder(
@@ -934,15 +975,16 @@ class _MatchesScreenState extends State<MatchesScreen> {
     );
   }
 
-  Widget _icebreakerChip(String text) {
+  Widget _icebreakerChip(String text, bool isDark) {
     return Padding(
       padding: const EdgeInsets.only(right: 6.0),
       child: ActionChip(
-        backgroundColor: AppTheme.darkShimmer,
+        backgroundColor: AppTheme.getSecondarySurface(isDark),
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        side: isDark ? BorderSide.none : const BorderSide(color: Color(0xFFE5E5EA), width: 0.5),
         label: Text(
           text,
-          style: const TextStyle(fontSize: 11, color: AppTheme.textLight),
+          style: TextStyle(fontSize: 11, color: isDark ? AppTheme.textLight : AppTheme.textDark),
         ),
         onPressed: () {
           _msgController.text = text;

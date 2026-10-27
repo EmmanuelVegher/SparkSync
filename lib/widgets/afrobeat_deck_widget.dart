@@ -26,14 +26,6 @@ class _AfrobeatDeckWidgetState extends State<AfrobeatDeckWidget> with TickerProv
   bool _isBackingLoopActive = false;
   String _selectedMode = 'karaoke'; // 'karaoke' or 'dj'
 
-  final List<Map<String, String>> _afrobeatTracks = const [
-    {'title': 'Burna Boy - City Boys (Ambiance Loop)', 'emoji': '🔥', 'tag': 'High Energy'},
-    {'title': 'Asake - Lonely At The Top (Log Drum Cut)', 'emoji': '🪵', 'tag': 'Amapiano'},
-    {'title': 'Rema - Calm Down (Vibe Rhythms)', 'emoji': '✨', 'tag': 'Afro-Rave'},
-    {'title': 'Ayra Starr - Rush (Groove Edition)', 'emoji': '💫', 'tag': 'Vocal Afrobeat'},
-    {'title': 'Wizkid - Essence (Chill Nightlife)', 'emoji': '🎷', 'tag': 'Mellow'},
-    {'title': 'Davido - Unavailable (Club Mix)', 'emoji': '🚀', 'tag': 'Banger'},
-  ];
 
   @override
   void initState() {
@@ -54,6 +46,7 @@ class _AfrobeatDeckWidgetState extends State<AfrobeatDeckWidget> with TickerProv
     _vinylAnim.dispose();
     _equalizerAnim.dispose();
     SoundService().stopAfrobeatLoop();
+    SoundService().stopKaraokeAudio();
     super.dispose();
   }
 
@@ -117,116 +110,26 @@ class _AfrobeatDeckWidgetState extends State<AfrobeatDeckWidget> with TickerProv
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.white24,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
+        return KaraokeSongSearchModal(
+          gameState: widget.gameState,
+          onTrackSelected: (track) {
+            final err = widget.gameState.joinKaraokeMicQueue(track);
+            if (err != null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: Colors.redAccent,
+                  content: Text(err, style: const TextStyle(fontWeight: FontWeight.bold)),
                 ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Row(
-                      children: [
-                        Text('🎧', style: TextStyle(fontSize: 22)),
-                        SizedBox(width: 8),
-                        Text(
-                          'Take The DJ Decks',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.lagosYellow.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppTheme.lagosYellow.withValues(alpha: 0.4)),
-                      ),
-                      child: const Row(
-                        children: [
-                          Text('Cost: 20 🪙', style: TextStyle(color: AppTheme.lagosYellow, fontWeight: FontWeight.bold, fontSize: 11)),
-                        ],
-                      ),
-                    ),
-                  ],
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: AppTheme.neonEmerald,
+                  content: Text('🎉 Selected "${track.title}" for the Stage!'),
                 ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Choose an Afrobeat banger loop. The crowd will vote 🔥 HYPE or 👎 BOO on your set!',
-                  style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
-                ),
-                const SizedBox(height: 16),
-                Flexible(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: _afrobeatTracks.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, idx) {
-                      final track = _afrobeatTracks[idx];
-                      return Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1B2236),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white10),
-                        ),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: Colors.white12,
-                            child: Text(track['emoji']!, style: const TextStyle(fontSize: 18)),
-                          ),
-                          title: Text(
-                            track['title']!,
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
-                          ),
-                          subtitle: Text(
-                            track['tag']!,
-                            style: const TextStyle(color: Colors.cyanAccent, fontSize: 11),
-                          ),
-                          trailing: const Icon(Icons.play_circle_fill_rounded, color: AppTheme.neonEmerald, size: 24),
-                          onTap: () {
-                            Navigator.of(ctx).pop();
-                            final err = widget.gameState.joinAfrobeatDjQueue(track['title']!);
-                            if (err != null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  backgroundColor: Colors.redAccent,
-                                  content: Text(err, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                ),
-                              );
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  backgroundColor: AppTheme.neonEmerald,
-                                  content: Text('🎉 Stepped into the DJ booth with "${track['title']}"!'),
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
+              );
+            }
+          },
         );
       },
     );

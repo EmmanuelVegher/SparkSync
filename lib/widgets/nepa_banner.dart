@@ -12,21 +12,23 @@ class NepaBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final event = gameState.activeEvent;
     if (event == null) return const SizedBox.shrink();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: event.isReward
-            ? AppTheme.neonEmerald.withOpacity(0.15)
-            : AppTheme.brandCoral.withOpacity(0.18),
+            ? AppTheme.neonEmerald.withValues(alpha: isDark ? 0.15 : 0.12)
+            : AppTheme.brandCoral.withValues(alpha: isDark ? 0.18 : 0.12),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: event.isReward
-              ? AppTheme.neonEmerald.withOpacity(0.5)
-              : AppTheme.brandCoral.withOpacity(0.6),
+              ? AppTheme.neonEmerald.withValues(alpha: 0.5)
+              : AppTheme.brandCoral.withValues(alpha: 0.6),
           width: 1.2,
         ),
+        boxShadow: AppTheme.getCardShadow(isDark),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -41,7 +43,9 @@ class NepaBanner extends StatelessWidget {
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
-                    color: event.isReward ? AppTheme.neonEmerald : AppTheme.lagosYellow,
+                    color: event.isReward
+                        ? AppTheme.neonEmerald
+                        : (isDark ? AppTheme.lagosYellow : const Color(0xFFD97706)),
                   ),
                 ),
               ),
@@ -56,7 +60,10 @@ class NepaBanner extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             event.description,
-            style: const TextStyle(fontSize: 12, color: AppTheme.textLight),
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? AppTheme.textLight : AppTheme.textDark,
+            ),
           ),
           const SizedBox(height: 10),
           Row(

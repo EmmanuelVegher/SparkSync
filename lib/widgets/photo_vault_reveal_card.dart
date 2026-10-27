@@ -338,28 +338,37 @@ class _PhotoVaultRevealCardState extends State<PhotoVaultRevealCard>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Text(
-                                  widget.profile.name,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      widget.profile.name,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 6),
-                                const Icon(Icons.verified, color: Colors.cyanAccent, size: 16),
-                              ],
-                            ),
-                            Text(
-                              '${widget.profile.age} yrs • ${widget.profile.occupation}',
-                              style: const TextStyle(color: AppTheme.textMuted, fontSize: 11),
-                            ),
-                          ],
+                                  const SizedBox(width: 6),
+                                  const Icon(Icons.verified, color: Colors.cyanAccent, size: 16),
+                                ],
+                              ),
+                              Text(
+                                '${widget.profile.age} yrs • ${widget.profile.occupation}',
+                                style: const TextStyle(color: AppTheme.textMuted, fontSize: 11),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ],
+                          ),
                         ),
                         Text(
                           widget.profile.avatarEmoji,
